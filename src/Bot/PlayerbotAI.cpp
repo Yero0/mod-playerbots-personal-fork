@@ -6184,6 +6184,10 @@ bool PlayerbotAI::CanMove()
     if ((bot->GetVehicle() && !IsInVehicle(true)))
         return false;
 
+    // Local change: stand still while a trade window is open (walking off cancels it); combat still moves
+    if (bot->GetTrader() && !bot->IsInCombat())
+        return false;
+
     return true;
 }
 

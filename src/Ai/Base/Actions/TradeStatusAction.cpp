@@ -139,6 +139,10 @@ bool TradeStatusAction::Execute(Event event)
     }
     else if (status == TRADE_STATUS_BEGIN_TRADE)
     {
+        // Local change: stop the current walk; CanMove keeps the bot in place until the trade closes
+        bot->GetMotionMaster()->Clear();
+        bot->StopMoving();
+
         if (!bot->HasInArc(CAST_ANGLE_IN_FRONT, trader, sPlayerbotAIConfig.sightDistance))
             bot->SetFacingToObject(trader);
 
