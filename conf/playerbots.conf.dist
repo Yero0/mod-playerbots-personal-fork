@@ -740,6 +740,9 @@ AiPlayerbot.SyncLevelWithPlayers = 0
 
 # Concentrate randombots teleporting into level-appropriate open-world zones that hold a real
 # (non-GM) player. Falls back to normal teleporting behaviour when no player's zone matches.
+# Local change: bots (level 10+) of a faction no online player plays fall back to their own cities
+# instead, and stay there (+stay, no rpg/grind/travel/duel/pvp) until their next teleport; they still
+# queue for battlegrounds and arenas. Revived bots follow the same rules.
 # Best paired with AiPlayerbot.SyncLevelWithPlayers.
 # Default: 0 (disabled)
 AiPlayerbot.RandomBotConcentrateInPlayerZone = 0
@@ -778,6 +781,20 @@ AiPlayerbot.LimitTalentsExpansion = 0
 # Configure randombot trading (0: Disabled, 1: Enabled, 2: Only Buy, 3: Only Sell)
 # Default: 1 (enabled)
 AiPlayerbot.EnableRandomBotTrading = 1
+
+# Random bots automatically buy useful items and sell junk at vendors via the
+# NewRpg strategy (no toggle). Manual 'b vendor'/'s vendor' commands are
+# unaffected for all bots.
+
+# Enable the same vendor automation for altbots (and selfbots) - bots played
+# by a real player through a game client.
+# Default: 0 (disabled)
+AiPlayerbot.EnableAltBotAutoBuy = 0
+
+# Alt/self bot vendor sell level via the NewRpg strategy:
+# 0: disabled, 1: sell gray (poor) items only, 2: sell all junk (same as randombots)
+# Default: 0 (disabled)
+AiPlayerbot.EnableAltBotAutoSell = 0
 
 # Configure message prefixes which will be excluded in analysis in trade action to open trade window
 AiPlayerbot.TradeActionExcludedPrefixes = "RPLL_H_,DBMv4,{звезда} Questie,{rt1} Questie"
