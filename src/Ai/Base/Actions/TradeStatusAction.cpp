@@ -17,6 +17,8 @@
 #include "RandomPlayerbotMgr.h"
 #include "SetCraftAction.h"
 
+#include <algorithm>  // Local change
+
 bool TradeStatusAction::Execute(Event event)
 {
     if (IsSelfBot(bot))
@@ -31,10 +33,13 @@ bool TradeStatusAction::Execute(Event event)
 
     bool const traderIsGameClientPlayer = IsRealPlayer(trader) || IsSelfBot(trader);
     Player* master = GetMaster();
+    // Local change: with RandomBotCraftForPlayers a random bot trades with any real player, never other bots
+    bool const craftCustomer =
+        sPlayerbotAIConfig.randomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) && IsRealPlayer(trader);
 
     // Bots refuse to trade with a person (whether active or selfbotting) who is neither their
     // master nor a group member. Bot traders (other than selfbots) are handled further down.
-    if (trader != master && traderIsGameClientPlayer &&
+    if (trader != master && traderIsGameClientPlayer && !craftCustomer &&  // Local change: craftCustomer
         (!bot->GetGroup() || !bot->GetGroup()->IsMember(trader->GetGUID())))
     {
         bot->Whisper(PlayerbotTextMgr::instance().GetBotTextOrDefault(
@@ -57,7 +62,7 @@ bool TradeStatusAction::Execute(Event event)
     // Bots also refuse their own master when ungrouped and security withholds full access.
     if ((!bot->GetGroup() || !bot->GetGroup()->IsMember(trader->GetGUID())) &&
         (trader != master || !botAI->GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_ALLOW_ALL, true, master)) &&
-        traderIsGameClientPlayer)
+        traderIsGameClientPlayer && !craftCustomer)  // Local change: craftCustomer
     {
         CancelTrade();
         return false;
@@ -116,6 +121,15 @@ bool TradeStatusAction::Execute(Event event)
                 uint32 count = i->second;
 
                 CraftData& craftData = AI_VALUE(CraftData&, "craft");
+                // Local change: sold units no longer carry the order price
+                auto const order = craftData.prices.find(itemId);
+                if (order != craftData.prices.end())
+                {
+                    if (order->second.count > count)
+                        order->second.count -= count;
+                    else
+                        craftData.prices.erase(order);
+                }
                 if (!craftData.IsEmpty() && craftData.itemId == itemId)
                     craftData.Crafted(count);
             }
@@ -148,6 +162,35 @@ void TradeStatusAction::BeginTrade()
 
     botAI->TellMaster("=== Inventory ===");
     TellItems(visitor.items, visitor.soulbound);
+
+    // Local change: what a random bot crafts on order, the best few per profession
+    if (sPlayerbotAIConfig.randomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) && IsRealPlayer(trader))
+    {
+        std::vector<CraftableItem> const craftables = SetCraftAction::GetCraftableItems(bot);
+        if (!craftables.empty())
+        {
+            botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                "craft_trade_header", "=== Crafting (whisper 'craft [item]') ===", {}));
+
+            // ponytail: fixed top 10 per profession; add a 'craft list <name>' filter if players need the rest
+            uint32 skill = 0;
+            uint32 shown = 0;
+            for (CraftableItem const& craftable : craftables)
+            {
+                if (craftable.skill != skill)
+                {
+                    skill = craftable.skill;
+                    shown = 0;
+                }
+
+                if (++shown > 10)
+                    continue;
+
+                botAI->TellMaster(chat->FormatItem(craftable.item, craftable.count) + " - " +
+                                  chat->formatMoney(craftable.price));
+            }
+        }
+    }
 
     if (sRandomPlayerbotMgr.IsRandomBot(bot))
     {
@@ -356,6 +399,10 @@ int32 TradeStatusAction::CalculateCost(Player* player, bool sell)
         return 0;
 
     uint32 sum = 0;
+    std::map<uint32, uint32> orderedLeft;  // Local change: crafted-on-order units not yet priced in this trade
+    for (auto const& [itemId, order] : AI_VALUE(CraftData&, "craft").prices)
+        orderedLeft[itemId] = order.count;
+
     for (uint32 slot = 0; slot < TRADE_SLOT_TRADED_COUNT; ++slot)
     {
         Item* item = data->GetItem((TradeSlots)slot);
@@ -370,6 +417,22 @@ int32 TradeStatusAction::CalculateCost(Player* player, bool sell)
             return 0;
 
         CraftData& craftData = AI_VALUE(CraftData&, "craft");
+        // Local change: crafted-on-order units at the order price, any other units of the stack as usual below
+        uint32 count = item->GetCount();
+        if (player == bot && sell)
+        {
+            auto const order = craftData.prices.find(proto->ItemId);
+            if (order != craftData.prices.end())
+            {
+                uint32 const ordered = std::min(count, orderedLeft[proto->ItemId]);
+                orderedLeft[proto->ItemId] -= ordered;
+                sum += ordered * order->second.price;
+                count -= ordered;
+                if (!count)
+                    continue;
+            }
+        }
+
         if (!craftData.IsEmpty())
         {
             if (player == trader && !sell && craftData.IsRequired(proto->ItemId))
@@ -383,10 +446,10 @@ int32 TradeStatusAction::CalculateCost(Player* player, bool sell)
         }
 
         if (sell)
-            sum += item->GetCount() * proto->SellPrice * sRandomPlayerbotMgr.GetSellMultiplier(bot);
+            sum += count * proto->SellPrice * sRandomPlayerbotMgr.GetSellMultiplier(bot);  // Local change: count
 
         else
-            sum += item->GetCount() * proto->BuyPrice * sRandomPlayerbotMgr.GetBuyMultiplier(bot);
+            sum += count * proto->BuyPrice * sRandomPlayerbotMgr.GetBuyMultiplier(bot);  // Local change: count
 
     }
 

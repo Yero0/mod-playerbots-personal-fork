@@ -19,9 +19,9 @@ public:
 
     bool Execute(Event event) override;
 
-private:
-    bool TradeItem(Item const* item, int8 slot);
+    bool TradeItem(Item const* item, int8 slot);  // Local change: public, used by SetCraftAction
 
+private:
     static std::map<std::string, uint32> slots;
 };
 

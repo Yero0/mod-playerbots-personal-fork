@@ -941,6 +941,8 @@ bool PlayerbotAI::IsAllowedCommand(std::string const text)
         unsecuredCommands.insert("lfg");
         unsecuredCommands.insert("pvp stats");
         unsecuredCommands.insert("rpg status");
+        if (sPlayerbotAIConfig.randomBotCraftForPlayers)  // Local change: orders from any trading player
+            unsecuredCommands.insert("craft");
     }
 
     for (std::set<std::string>::iterator i = unsecuredCommands.begin(); i != unsecuredCommands.end(); ++i)
@@ -3082,6 +3084,9 @@ bool PlayerbotAI::TellMasterNoFacing(std::string const text, PlayerbotSecurityLe
 bool PlayerbotAI::TellError(std::string const text, PlayerbotSecurityLevel securityLevel)
 {
     Player* master = GetMaster();
+    if (!master && TellTrader(text))  // Local change: a masterless bot in a trade answers its trade partner
+        return false;
+
     if (!IsTellAllowed(securityLevel) || !master || GET_PLAYERBOT_AI(master))
         return false;
 
@@ -3114,10 +3119,27 @@ bool PlayerbotAI::TellMaster(std::ostringstream& stream, PlayerbotSecurityLevel 
     return TellMaster(stream.str(), securityLevel);
 }
 
+// Local change
+bool PlayerbotAI::TellTrader(std::string const& text)
+{
+    if (!sPlayerbotAIConfig.randomBotCraftForPlayers)
+        return false;
+
+    Player* trader = bot->GetTrader();
+    if (!trader || !IsRealPlayer(trader))
+        return false;
+
+    bot->Whisper(text, LANG_UNIVERSAL, trader);
+    return true;
+}
+
 bool PlayerbotAI::TellMaster(std::string const text, PlayerbotSecurityLevel securityLevel)
 {
     if (!master)
     {
+        if (TellTrader(text))  // Local change: a masterless bot in a trade answers its trade partner
+            return true;
+
         if (sPlayerbotAIConfig.randomBotSayWithoutMaster)
             return TellMasterNoFacing(text, securityLevel);
 

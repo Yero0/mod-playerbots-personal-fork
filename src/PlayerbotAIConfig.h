@@ -400,6 +400,7 @@ public:
     bool autoTeleportForLevel;
     bool randomBotGroupNearby;
     int32 enableRandomBotTrading;
+    bool randomBotCraftForPlayers;  // Local change
     bool enableAltBotAutoBuy;
     int32 altBotAutoSellLevel;
     uint32 tweakValue;  // Debugging config

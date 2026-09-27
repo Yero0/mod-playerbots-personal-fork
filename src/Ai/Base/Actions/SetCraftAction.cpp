@@ -10,16 +10,135 @@
 #include "Event.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
+#include "RandomPlayerbotMgr.h"
+#include "TradeAction.h"
 
-std::map<uint32, SkillLineAbilityEntry const*> SetCraftAction::skillSpells;
+#include <algorithm>
+#include <set>
+
+// Local change: built once, thread-safe; the old static map was filled lazily from every map thread
+SkillLineAbilityEntry const* SetCraftAction::GetSkillLine(uint32 spellId)
+{
+    static std::map<uint32, SkillLineAbilityEntry const*> const skillSpells = []
+    {
+        std::map<uint32, SkillLineAbilityEntry const*> spells;
+        for (SkillLineAbilityEntry const* skillLine : sSkillLineAbilityStore)
+            spells[skillLine->Spell] = skillLine;
+        return spells;
+    }();
+
+    auto const itr = skillSpells.find(spellId);
+    return itr != skillSpells.end() ? itr->second : nullptr;
+}
+
+// Local change
+std::vector<CraftableItem> SetCraftAction::GetCraftableItems(Player* bot)
+{
+    static std::set<uint32> const manufacturing = {SKILL_ALCHEMY,         SKILL_BLACKSMITHING, SKILL_ENCHANTING,
+                                                   SKILL_ENGINEERING,     SKILL_INSCRIPTION,   SKILL_JEWELCRAFTING,
+                                                   SKILL_LEATHERWORKING,  SKILL_TAILORING};
+
+    std::vector<CraftableItem> result;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+
+        SkillLineAbilityEntry const* skillLine = GetSkillLine(spellId);
+        if (!skillLine || !manufacturing.contains(skillLine->SkillLine))
+            continue;
+
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+        if (!spellInfo)
+            continue;
+
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+        {
+            if (spellInfo->Effects[i].Effect != SPELL_EFFECT_CREATE_ITEM || !spellInfo->Effects[i].ItemType)
+                continue;
+
+            // the trade refuses bound items and items without a sell price
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(spellInfo->Effects[i].ItemType);
+            if (!proto || proto->Bonding == BIND_WHEN_PICKED_UP || !proto->SellPrice)
+                continue;
+
+            uint32 price = GetCraftFee(proto);
+            for (uint32 x = 0; x < MAX_SPELL_REAGENTS; ++x)
+            {
+                if (spellInfo->Reagent[x] <= 0)
+                    continue;
+
+                if (ItemTemplate const* reagent = sObjectMgr->GetItemTemplate(spellInfo->Reagent[x]))
+                    price += (reagent->BuyPrice ? reagent->BuyPrice : reagent->SellPrice) * spellInfo->ReagentCount[x];
+            }
+
+            uint32 const count = std::max<int32>(1, spellInfo->Effects[i].CalcValue(bot));
+            result.push_back({spellInfo, proto, skillLine->SkillLine, count, price});
+            break;
+        }
+    }
+
+    std::sort(result.begin(), result.end(), [](CraftableItem const& a, CraftableItem const& b)
+              { return a.skill != b.skill ? a.skill < b.skill : a.item->ItemLevel > b.item->ItemLevel; });
+    return result;
+}
+
+// Local change: make the item from nothing (the price covers the reagents) and put it in the trade window
+bool SetCraftAction::CraftForTrader(std::string const& link)
+{
+    ItemIds itemIds = chat->parseItems(link);
+    if (itemIds.empty())
+        return false;
+
+    uint32 const itemId = *itemIds.begin();
+    std::vector<CraftableItem> const craftables = GetCraftableItems(bot);
+    auto const craftable = std::find_if(craftables.begin(), craftables.end(),
+                                        [itemId](CraftableItem const& c) { return c.item->ItemId == itemId; });
+    if (craftable == craftables.end())
+    {
+        botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "craft_cannot_craft", "I cannot craft this", {}));
+        return false;
+    }
+
+    ItemPosCountVec dest;
+    Item* item = bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemId, craftable->count) == EQUIP_ERR_OK
+                     ? bot->StoreNewItem(dest, itemId, true)
+                     : nullptr;
+    if (!item)
+    {
+        botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+            "craft_bags_full", "My bags are full", {}));
+        return false;
+    }
+
+    // StoreNewItem can merge into a stack the bot already had; only the new units carry the order price
+    CraftData::OrderPrice& order = AI_VALUE(CraftData&, "craft").prices[itemId];
+    order.price = (craftable->price + craftable->count - 1) / craftable->count;
+    order.count += craftable->count;
+    if (!TradeAction(botAI).TradeItem(item, -1))
+        return false;
+
+    botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+        "craft_for_sale", "Crafted %item for %money",
+        {{"%item", chat->FormatItem(craftable->item, craftable->count)},
+         {"%money", chat->formatMoney(craftable->price)}}));
+    return true;
+}
 
 bool SetCraftAction::Execute(Event event)
 {
+    std::string const link = event.getParam();
+
+    // Local change: a random bot crafts on order for the real player it trades with
+    Player* trader = bot->GetTrader();
+    if (sPlayerbotAIConfig.randomBotCraftForPlayers && trader && trader == event.getOwner() &&
+        IsRealPlayer(trader) && sRandomPlayerbotMgr.IsRandomBot(bot) && link != "reset" && link != "?")
+        return CraftForTrader(link);
+
     Player* master = GetMaster();
     if (!master)
         return false;
-
-    std::string const link = event.getParam();
 
     CraftData& data = AI_VALUE(CraftData&, "craft");
     if (link == "reset")
@@ -49,12 +168,6 @@ bool SetCraftAction::Execute(Event event)
     if (!proto)
         return false;
 
-    if (skillSpells.empty())
-    {
-        for (SkillLineAbilityEntry const* skillLine : sSkillLineAbilityStore)
-            skillSpells[skillLine->Spell] = skillLine;
-    }
-
     data.required.clear();
     data.obtained.clear();
 
@@ -69,7 +182,7 @@ bool SetCraftAction::Execute(Event event)
         if (!spellInfo)
             continue;
 
-        SkillLineAbilityEntry const* skillLine = skillSpells[spellId];
+        SkillLineAbilityEntry const* skillLine = GetSkillLine(spellId);  // Local change
         if (skillLine != nullptr)
         {
             for (uint8 i = 0; i < 3; ++i)
@@ -158,7 +271,12 @@ uint32 SetCraftAction::GetCraftFee(CraftData& data)
     if (data.IsEmpty())
         return 0;
 
-    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(data.itemId);
+    return GetCraftFee(sObjectMgr->GetItemTemplate(data.itemId));  // Local change
+}
+
+// Local change: split out of GetCraftFee(CraftData&)
+uint32 SetCraftAction::GetCraftFee(ItemTemplate const* proto)
+{
     if (!proto)
         return 0;
 

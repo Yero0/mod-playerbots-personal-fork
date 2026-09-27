@@ -473,6 +473,7 @@ public:
     bool TellMasterNoFacing(std::string const text,
                             PlayerbotSecurityLevel securityLevel = PLAYERBOT_SECURITY_ALLOW_ALL);
     bool TellError(std::string const text, PlayerbotSecurityLevel securityLevel = PLAYERBOT_SECURITY_ALLOW_ALL);
+    bool TellTrader(std::string const& text);  // Local change: whisper the real player this bot trades with
     bool SayToGuild(std::string const& msg);
     bool SayToWorld(std::string const& msg);
     bool SayToChannel(std::string const& msg, ChatChannelId const& chanId);

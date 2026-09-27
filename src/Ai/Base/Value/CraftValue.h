@@ -19,6 +19,13 @@ public:
 
     uint32 itemId;
     std::map<uint32, uint32> required, obtained;
+    // Local change: crafted-on-order items by item id: price per item and how many units carry it
+    struct OrderPrice
+    {
+        uint32 price{0};
+        uint32 count{0};
+    };
+    std::map<uint32, OrderPrice> prices;
 
     bool IsEmpty() { return itemId == 0; }
     void Reset() { itemId = 0; }
