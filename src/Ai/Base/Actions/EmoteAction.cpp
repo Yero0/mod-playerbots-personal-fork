@@ -667,7 +667,8 @@ bool EmoteAction::Execute(Event event)
             p >> nam;
 
         pSource = ObjectAccessor::FindPlayer(source);
-        if (pSource && (pSource->GetGUID() != bot->GetGUID()) &&
+        // Local change: IsRealPlayer, bots answering each other's emotes set off chains
+        if (pSource && IsRealPlayer(pSource) && (pSource->GetGUID() != bot->GetGUID()) &&
             ((urand(0, 1) && bot->HasInArc(static_cast<float>(M_PI), pSource, 10.0f)) ||
              (namlen > 1 && strstri(bot->GetName().c_str(), nam.c_str()))))
         {
@@ -688,7 +689,9 @@ bool EmoteAction::Execute(Event event)
         p >> emoteId >> source;
 
         pSource = ObjectAccessor::FindPlayer(source);
-        if (pSource && pSource != bot && ServerFacade::instance().GetDistance2d(bot, pSource) < sPlayerbotAIConfig.farDistance &&
+        // Local change: IsRealPlayer, bots answering each other's emotes set off chains
+        if (pSource && pSource != bot && IsRealPlayer(pSource) &&
+            ServerFacade::instance().GetDistance2d(bot, pSource) < sPlayerbotAIConfig.farDistance &&
             emoteId != EMOTE_ONESHOT_NONE)
         {
             if ((pSource->GetGUID() != bot->GetGUID()) &&

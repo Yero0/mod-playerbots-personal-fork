@@ -13,8 +13,18 @@ ObjectGuid NewPlayerNearbyValue::Calculate()
     GuidSet& alreadySeenPlayers = botAI->GetAiObjectContext()->GetValue<GuidSet&>("already seen players")->Get();
     for (ObjectGuid const guid : players)
     {
-        if (alreadySeenPlayers.find(guid) == alreadySeenPlayers.end())
-            return guid;
+        if (alreadySeenPlayers.find(guid) != alreadySeenPlayers.end())
+            continue;
+
+        // Local change: greet real players only; a bot is written off once, so it is looked up a single time
+        Player* player = ObjectAccessor::FindPlayer(guid);
+        if (!player || !IsRealPlayer(player))
+        {
+            alreadySeenPlayers.insert(guid);
+            continue;
+        }
+
+        return guid;
     }
 
     return ObjectGuid::Empty;
