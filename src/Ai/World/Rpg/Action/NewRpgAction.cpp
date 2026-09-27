@@ -13,6 +13,7 @@
 #include "IVMapMgr.h"
 #include "MotionMaster.h"
 #include "MoveSpline.h"
+#include "NewRpgDoGather.h"  // Local change
 #include "NewRpgInfo.h"
 #include "NewRpgStrategy.h"
 #include "Object.h"
@@ -167,14 +168,15 @@ bool TellRpgStatusAction::Execute(Event event)
     }
     else if (status == RPG_DO_GATHER)
     {
-        if (!botAI->HasSkill(SKILL_HERBALISM) && !botAI->HasSkill(SKILL_MINING))
+        uint32 const skill = SelectGatherSkill();  // Local change: session kind
+        if (!skill)
         {
             std::string msg = PlayerbotTextMgr::instance().GetBotTextOrDefault(
                 "rpg_gather_no_profession_error", "I have neither Herbalism nor Mining, so I can't gather.", {});
             bot->Whisper(msg, LANG_UNIVERSAL, owner);
             return false;
         }
-        info.ChangeToDoGather();
+        info.ChangeToDoGather(skill);
         WhisperStatusChange(owner, "DO_GATHER");
         return true;
     }
@@ -345,7 +347,7 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
             // DO_GATHER -> IDLE
             if (info.HasStatusPersisted(statusDoGatherDuration))
             {
-                info.ChangeToIdle();
+                NewRpgDoGatherAction::EndSession(botAI);  // Local change: re-equips after fishing
                 return true;
             }
             break;

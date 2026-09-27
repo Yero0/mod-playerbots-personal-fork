@@ -8,6 +8,7 @@
 #define PLAYERBOT_NEWRPGDOGATHER_H
 
 #include "NewRpgBaseAction.h"
+#include "NewRpgInfo.h"
 
 class NewRpgDoGatherAction : public NewRpgBaseAction
 {
@@ -15,7 +16,15 @@ public:
     NewRpgDoGatherAction(PlayerbotAI* botAI) : NewRpgBaseAction(botAI, "new rpg do gather") {}
     bool Execute(Event event) override;
 
+    // Local change: back to IDLE; a fishing session also swaps the pole for the best weapon again
+    static void EndSession(PlayerbotAI* botAI);
+
 protected:
+    // Local change: skinning session - roam a grind spot, the grind target picks skinnable beasts
+    bool Skin(NewRpgInfo::DoGather& data);
+    // Local change: fishing session at a pool reached within fishingApproachDistance
+    bool Fish(NewRpgInfo::DoGather& data, Event event);
+
     // Release the loot pipeline's target if it points at the given spawn.
     // Called whenever the gather action abandons a node, so a half-done
     // harvest can't leave a stale loot target behind (which would gate off
@@ -42,6 +51,10 @@ protected:
     // the current target) - the cost of grabbing it is negligible and
     // skipping it reads as "ran past a herb".
     const float nodePickupDistance = 30.0f;
+    // Local change: a pool is fished from the shore, so stop this far away and let the fishing actions pick the spot
+    const float fishingApproachDistance = 30.0f;
+    // Local change: fishing a pool empty takes several casts
+    const uint32 fishingStayTime = 3 * MINUTE * IN_MILLISECONDS;
 };
 
 #endif

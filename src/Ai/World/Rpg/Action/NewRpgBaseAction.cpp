@@ -1196,7 +1196,12 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
         }
         case RPG_DO_GATHER:
         {
-            botAI->rpgInfo.ChangeToDoGather();
+            // Local change: pick the session kind
+            uint32 const skill = SelectGatherSkill();
+            if (!skill)
+                return false;
+
+            botAI->rpgInfo.ChangeToDoGather(skill);
             return true;
         }
         case RPG_IDLE:
@@ -1223,6 +1228,25 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
         }
     }
     return false;
+}
+
+// Local change: herb and ore nodes (SKILL_HERBALISM), fishing pools or skinnable beasts, chosen at random
+uint32 NewRpgBaseAction::SelectGatherSkill()
+{
+    // No point farming with (nearly) full bags - the loot pipeline
+    // can't store the harvest (see StoreLootAction).
+    if (AI_VALUE(uint8, "bag space") > 80)
+        return 0;
+
+    std::vector<uint32> skills;
+    if ((botAI->HasSkill(SKILL_HERBALISM) || botAI->HasSkill(SKILL_MINING)) && sGatherNodeMgr.HasUsableNodes(bot))
+        skills.push_back(SKILL_HERBALISM);
+    if (botAI->HasSkill(SKILL_FISHING) && sGatherNodeMgr.HasUsableNodes(bot, true))
+        skills.push_back(SKILL_FISHING);
+    if (botAI->HasSkill(SKILL_SKINNING))
+        skills.push_back(SKILL_SKINNING);
+
+    return skills.empty() ? 0 : skills[urand(0, skills.size() - 1)];
 }
 
 bool NewRpgBaseAction::CheckRpgStatusAvailable(NewRpgStatus status)
@@ -1270,17 +1294,7 @@ bool NewRpgBaseAction::CheckRpgStatusAvailable(NewRpgStatus status)
             return false;
         }
         case RPG_DO_GATHER:
-        {
-            if (!botAI->HasSkill(SKILL_HERBALISM) && !botAI->HasSkill(SKILL_MINING))
-                return false;
-
-            // No point farming with (nearly) full bags - the loot pipeline
-            // can't store the harvest (see StoreLootAction).
-            if (AI_VALUE(uint8, "bag space") > 80)
-                return false;
-
-            return sGatherNodeMgr.HasUsableNodes(bot);
-        }
+            return SelectGatherSkill() != 0;  // Local change: herbs/ore, fishing pools or skinning
         case RPG_TRAVEL_FLIGHT:
         {
             uint32 flightMasterEntry = 0;

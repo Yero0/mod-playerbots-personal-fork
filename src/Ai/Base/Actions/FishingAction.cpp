@@ -126,9 +126,7 @@ WorldPosition FindLandRadialFromPosition (PlayerbotAI* botAI, WorldPosition targ
     Player* bot = botAI->GetBot();
     const int numDirections = angles;
     std::vector<WorldPosition> boundaryPoints;
-    Player* master = botAI->GetMaster();
-    if (!master)
-        return WorldPosition();
+    Player* master = botAI->GetMaster();  // Local change: may be null (random bots fishing pools)
 
     Map* map = bot->GetMap();
     uint32 phaseMask = bot->GetPhaseMask();
@@ -150,7 +148,13 @@ WorldPosition FindLandRadialFromPosition (PlayerbotAI* botAI, WorldPosition targ
             if (groundZ == INVALID_HEIGHT)
                 continue;
 
-            if (map->isInLineOfSight(checkX, checkY, groundZ, targetX, targetY, targetZ, phaseMask, LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::Nothing) && master->GetDistance(checkX, checkY, groundZ) > fishingSearchWindow - SEARCH_LAND_BUFFER)
+            // Local change: without a master (random bots) the spot needs line of sight to the pool instead
+            bool const hasLos = map->isInLineOfSight(checkX, checkY, groundZ, targetX, targetY, targetZ, phaseMask,
+                                                     LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::Nothing);
+            if (!master && !hasLos)
+                continue;
+            if (master && hasLos &&
+                master->GetDistance(checkX, checkY, groundZ) > fishingSearchWindow - SEARCH_LAND_BUFFER)
                 continue;
 
             boundaryPoints.emplace_back(WorldPosition(bot->GetMapId(), checkX, checkY, groundZ));

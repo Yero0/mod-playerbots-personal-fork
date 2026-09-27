@@ -62,6 +62,8 @@ protected:
     bool SelectRandomFlightTaxiNode(uint32& flightMasterEntry, WorldPosition& flightMasterPos, std::vector<uint32>& path);
     bool RandomChangeStatus(std::vector<NewRpgStatus> candidateStatus);
     bool CheckRpgStatusAvailable(NewRpgStatus status);
+    // Local change: random gather session the bot can do here (DoGather::skill), 0 if none
+    uint32 SelectGatherSkill();
 
 protected:
     /* FOR MOVE FAR */

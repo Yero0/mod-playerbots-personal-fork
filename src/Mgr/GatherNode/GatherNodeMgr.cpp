@@ -11,6 +11,8 @@
 #include "DBCStores.h"
 #include "DatabaseEnv.h"
 #include "GameObject.h"
+#include "GridDefines.h"
+#include "GridTerrainData.h"
 #include "Log.h"
 #include "Map.h"
 #include "MapMgr.h"
@@ -21,12 +23,22 @@
 #include "Playerbots.h"
 #include "Random.h"
 #include "SharedDefines.h"
+#include "StringFormat.h"
 #include "Timer.h"
+#include "World.h"
 
 namespace
 {
 bool GetGatherSkillFromTemplate(GameObjectTemplate const* goInfo, uint32& skillId, uint32& reqSkillValue)
 {
+    // Local change: fishing pools; Load sets their required skill from the zone
+    if (goInfo && goInfo->type == GAMEOBJECT_TYPE_FISHINGHOLE)
+    {
+        skillId = SKILL_FISHING;
+        reqSkillValue = 1;
+        return true;
+    }
+
     if (!goInfo || goInfo->type != GAMEOBJECT_TYPE_CHEST)
         return false;
 
@@ -60,7 +72,6 @@ void GatherNodeMgr::Load()
 {
     uint32 oldMSTime = getMSTime();
     uint32 count = 0;
-    uint32 skipped = 0;  // Local change
 
     // Loot ids with at least one freely lootable row. Quest-gated
     // "gathering" chests (Cactus Apple, Serpentbloom, ...) carry a
@@ -79,6 +90,7 @@ void GatherNodeMgr::Load()
         } while (result->NextRow());
     }
 
+    std::map<std::tuple<uint32, uint32, uint32>, std::vector<GatherNodeSpawn>> noZoneByGrid;  // Local change
     std::unordered_map<ObjectGuid::LowType, uint32> dbZoneIds;
     if (QueryResult result = WorldDatabase.Query("SELECT guid, zoneId FROM gameobject WHERE zoneId <> 0"))
     {
@@ -110,25 +122,59 @@ void GatherNodeMgr::Load()
         node.pos = WorldPosition(goData.mapid, goData.posX, goData.posY, goData.posZ);
         node.skillId = skillId;
         node.reqSkillValue = reqSkillValue;
-        // Local change: skip spawns without a DB zoneId. sMapMgr->GetZoneId creates the node's grid for good
-        // (terrain, vmap and mmap tiles), the same startup memory growth fixed in TravelMgr.
+        // Local change: spawns without a DB zoneId get it from their grid's terrain file below.
+        // sMapMgr->GetZoneId would create the grid for good (terrain, vmap and mmap tiles), the startup memory
+        // growth fixed in TravelMgr::PrepareDestinationCache.
         auto zoneItr = dbZoneIds.find(spawnId);
         if (zoneItr == dbZoneIds.end())
         {
-            ++skipped;
+            GridCoord const grid = Acore::ComputeGridCoord(goData.posX, goData.posY);
+            noZoneByGrid[{goData.mapid, grid.x_coord, grid.y_coord}].push_back(std::move(node));
             continue;
         }
 
-        _nodes[goData.mapid][zoneItr->second].push_back(std::move(node));
+        AddNode(std::move(node), zoneItr->second);
         ++count;
     }
 
-    LOG_INFO("playerbots", ">> Loaded {} gather node spawns ({} without zoneId skipped) in {} ms", count, skipped,
-             GetMSTimeDiffToNow(oldMSTime));  // Local change
+    // Local change: one terrain file load per grid, freed again
+    for (auto& [gridKey, nodes] : noZoneByGrid)
+    {
+        auto const& [mapId, gridX, gridY] = gridKey;
+        GridTerrainData terrain;
+        if (terrain.Load(Acore::StringFormat("{}maps/{:03}{:02}{:02}.map", sWorld->GetDataPath(), mapId, gridX,
+                                             gridY)) != TerrainMapDataReadResult::Success)
+            continue;
+
+        for (GatherNodeSpawn& node : nodes)
+        {
+            AreaTableEntry const* area =
+                sAreaTableStore.LookupEntry(terrain.getArea(node.pos.GetPositionX(), node.pos.GetPositionY()));
+            if (!area)
+                continue;
+
+            AddNode(std::move(node), area->zone ? area->zone : area->ID);
+            ++count;
+        }
+    }
+
+    LOG_INFO("playerbots", ">> Loaded {} gather node spawns in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
-bool GatherNodeMgr::IsUsable(PlayerbotAI* botAI, Player* bot, GatherNodeSpawn const& node)
+// Local change: fishing pools need the zone's fishing skill (the value the core checks when fishing)
+void GatherNodeMgr::AddNode(GatherNodeSpawn&& node, uint32 zoneId)
 {
+    if (node.skillId == SKILL_FISHING)
+        node.reqSkillValue = std::max<int32>(1, sObjectMgr->GetFishingBaseSkillLevel(zoneId));
+
+    _nodes[node.pos.GetMapId()][zoneId].push_back(std::move(node));
+}
+
+bool GatherNodeMgr::IsUsable(PlayerbotAI* botAI, Player* bot, GatherNodeSpawn const& node, bool fishing)
+{
+    if ((node.skillId == SKILL_FISHING) != fishing)  // Local change
+        return false;
+
     if (!botAI->HasSkill(SkillType(node.skillId)))
         return false;
 
@@ -145,7 +191,7 @@ std::vector<GatherNodeSpawn> const* GatherNodeMgr::GetZoneNodes(uint32 mapId, ui
     return zoneItr != mapItr->second.end() ? &zoneItr->second : nullptr;
 }
 
-bool GatherNodeMgr::HasUsableNodes(Player* bot)
+bool GatherNodeMgr::HasUsableNodes(Player* bot, bool fishing)  // Local change: fishing
 {
     std::vector<GatherNodeSpawn> const* nodes = GetZoneNodes(bot->GetMapId(), bot->GetZoneId());
     if (!nodes)
@@ -156,13 +202,14 @@ bool GatherNodeMgr::HasUsableNodes(Player* bot)
         return false;
 
     for (GatherNodeSpawn const& node : *nodes)
-        if (IsUsable(botAI, bot, node))
+        if (IsUsable(botAI, bot, node, fishing))  // Local change
             return true;
 
     return false;
 }
 
-GatherNodeSpawn const* GatherNodeMgr::GetNextNode(Player* bot, std::unordered_set<ObjectGuid::LowType> const& visited)
+GatherNodeSpawn const* GatherNodeMgr::GetNextNode(Player* bot, std::unordered_set<ObjectGuid::LowType> const& visited,
+                                                  bool fishing)  // Local change: fishing
 {
     std::vector<GatherNodeSpawn> const* nodes = GetZoneNodes(bot->GetMapId(), bot->GetZoneId());
     if (!nodes)
@@ -178,7 +225,7 @@ GatherNodeSpawn const* GatherNodeMgr::GetNextNode(Player* bot, std::unordered_se
     std::vector<std::pair<float, GatherNodeSpawn const*>> candidates;
     for (GatherNodeSpawn const& node : *nodes)
     {
-        if (visited.contains(node.spawnId) || !IsUsable(botAI, bot, node))
+        if (visited.contains(node.spawnId) || !IsUsable(botAI, bot, node, fishing))  // Local change
             continue;
 
         // Don't route to spawn points we can already see to be empty.
@@ -221,7 +268,7 @@ bool GatherNodeMgr::IsVerifiablyDown(Map* map, WorldPosition const& pos, ObjectG
 
 GatherNodeSpawn const* GatherNodeMgr::GetNearestLiveNode(Player* bot,
                                                          std::unordered_set<ObjectGuid::LowType> const& visited,
-                                                         float radius)
+                                                         float radius, bool fishing)  // Local change: fishing
 {
     auto mapItr = _nodes.find(bot->GetMapId());
     if (mapItr == _nodes.end())
@@ -246,7 +293,7 @@ GatherNodeSpawn const* GatherNodeMgr::GetNearestLiveNode(Player* bot,
             if (distSq > nearestDistSq)
                 continue;
 
-            if (visited.contains(node.spawnId) || !IsUsable(botAI, bot, node))
+            if (visited.contains(node.spawnId) || !IsUsable(botAI, bot, node, fishing))  // Local change
                 continue;
 
             if (!map->IsGridLoaded(node.pos.GetPositionX(), node.pos.GetPositionY()))

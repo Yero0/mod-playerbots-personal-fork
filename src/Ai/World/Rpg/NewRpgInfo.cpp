@@ -60,10 +60,12 @@ void NewRpgInfo::ChangeToOutdoorPvp(ObjectGuid::LowType capturePointSpawnId)
     data = pvp;
 }
 
-void NewRpgInfo::ChangeToDoGather()
+void NewRpgInfo::ChangeToDoGather(uint32 skill)  // Local change
 {
     startT = getMSTime();
-    data = DoGather{};
+    DoGather gather;
+    gather.skill = skill;
+    data = std::move(gather);
 }
 
 void NewRpgInfo::ChangeToRest()

@@ -7,6 +7,8 @@
 #ifndef PLAYERBOT_GATHERNODEMGR_H
 #define PLAYERBOT_GATHERNODEMGR_H
 
+#include <map>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -23,7 +25,7 @@ struct GatherNodeSpawn
 {
     ObjectGuid::LowType spawnId{0};
     WorldPosition pos{};
-    uint32 skillId{0};  // SKILL_HERBALISM or SKILL_MINING
+    uint32 skillId{0};  // SKILL_HERBALISM, SKILL_MINING or SKILL_FISHING (pools; Local change)
     uint32 reqSkillValue{0};
 };
 
@@ -42,11 +44,13 @@ public:
 
     // Cheap check for CheckRpgStatusAvailable: any node in the bot's current
     // zone harvestable with its current skills?
-    bool HasUsableNodes(Player* bot);
+    // Local change: `fishing` selects fishing pools instead of herb and ore nodes (all three queries)
+    bool HasUsableNodes(Player* bot, bool fishing = false);
 
     // Random pick among the 4 nearest unvisited usable nodes in the bot's
     // current zone (jitter keeps co-located bots from herding on one route).
-    GatherNodeSpawn const* GetNextNode(Player* bot, std::unordered_set<ObjectGuid::LowType> const& visited);
+    GatherNodeSpawn const* GetNextNode(Player* bot, std::unordered_set<ObjectGuid::LowType> const& visited,
+                                       bool fishing = false);
 
     // Live (spawned + GO_STATE_READY) object for a spawn point, nullptr if
     // none. Only meaningful when the grid at the spawn position is loaded.
@@ -62,12 +66,13 @@ public:
     // right now, or nullptr. Deliberately not zone-filtered: a live node
     // just across a zone border still counts as "passing by".
     GatherNodeSpawn const* GetNearestLiveNode(Player* bot, std::unordered_set<ObjectGuid::LowType> const& visited,
-                                              float radius);
+                                              float radius, bool fishing = false);
 
 private:
-    bool IsUsable(PlayerbotAI* botAI, Player* bot, GatherNodeSpawn const& node);
+    bool IsUsable(PlayerbotAI* botAI, Player* bot, GatherNodeSpawn const& node, bool fishing);
 
     std::vector<GatherNodeSpawn> const* GetZoneNodes(uint32 mapId, uint32 zoneId) const;
+    void AddNode(GatherNodeSpawn&& node, uint32 zoneId);  // Local change
 
     // Bucketed per zone so the zone-scoped queries (HasUsableNodes,
     // GetNextNode) touch only the bot's zone instead of the whole continent.

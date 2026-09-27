@@ -54,6 +54,9 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
     float distance = 0;
     Unit* result = nullptr;
     std::unordered_map<uint32, bool> needForQuestMap;
+    // Local change: a skinning gather session hunts only beasts the bot can skin, grey and out of aggro range too
+    auto const* gather = std::get_if<NewRpgInfo::DoGather>(&botAI->rpgInfo.data);
+    bool const skinningSession = gather && gather->skill == SKILL_SKINNING;
 
     for (ObjectGuid const guid : targets)
     {
@@ -64,14 +67,18 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
         if (!unit->IsInWorld() || unit->IsDuringRemoveFromWorld())
             continue;
 
-        if (unit->ToCreature() && !unit->ToCreature()->GetCreatureTemplate()->lootid &&
-            bot->GetReactionTo(unit) >= REP_NEUTRAL)
+        bool const skinTarget = skinningSession && CanSkin(unit);  // Local change
+        if (skinningSession && !skinTarget)
+            continue;
+
+        if (!skinTarget && unit->ToCreature() && !unit->ToCreature()->GetCreatureTemplate()->lootid &&
+            bot->GetReactionTo(unit) >= REP_NEUTRAL)  // Local change: skinTarget
             continue;
 
         if (!bot->IsHostileTo(unit) && unit->GetNpcFlags() != UNIT_NPC_FLAG_NONE)
             continue;
 
-        if (!bot->isHonorOrXPTarget(unit))
+        if (!skinTarget && !bot->isHonorOrXPTarget(unit))  // Local change: skinTarget
             continue;
 
         if (abs(bot->GetPositionZ() - unit->GetPositionZ()) > INTERACTION_DISTANCE)
@@ -111,7 +118,7 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
         if (unit->ToCreature())
             aggroRange = std::min(30.0f, unit->ToCreature()->GetAggroRange(bot) + 10.0f);
         bool outOfAggro = unit->ToCreature() && bot->GetDistance(unit) > aggroRange;
-        if (inactiveGrindStatus && outOfAggro)
+        if (inactiveGrindStatus && outOfAggro && !skinTarget)  // Local change: skinTarget
         {
             if (needForQuestMap.find(unit->GetEntry()) == needForQuestMap.end())
                 needForQuestMap[unit->GetEntry()] = needForQuest(unit);
@@ -149,6 +156,22 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
     }
 
     return result;
+}
+
+// Local change: same skill rule as Spell::EffectSkinning (and Spell::CheckCast)
+bool GrindTargetValue::CanSkin(Unit* unit)
+{
+    Creature* creature = unit->ToCreature();
+    if (!creature)
+        return false;
+
+    CreatureTemplate const* creatureTemplate = creature->GetCreatureTemplate();
+    if (!creatureTemplate->SkinLootId || creatureTemplate->GetRequiredLootSkill() != SKILL_SKINNING)
+        return false;
+
+    int32 const level = creature->GetLevel();
+    int32 const reqValue = level < 10 ? 0 : level < 20 ? (level - 10) * 10 : level * 5;
+    return static_cast<int32>(bot->GetSkillValue(SKILL_SKINNING)) >= reqValue;
 }
 
 bool GrindTargetValue::needForQuest(Unit* target)

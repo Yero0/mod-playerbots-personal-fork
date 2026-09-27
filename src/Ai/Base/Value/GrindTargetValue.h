@@ -22,6 +22,7 @@ public:
 private:
     uint32 GetTargetingPlayerCount(Unit* unit);
     Unit* FindTargetForGrinding(uint32 assistCount);
+    bool CanSkin(Unit* unit);  // Local change
     bool needForQuest(Unit* target);
 };
 

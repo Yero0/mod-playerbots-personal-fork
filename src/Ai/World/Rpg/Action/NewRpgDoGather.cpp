@@ -6,6 +6,8 @@
 
 #include "NewRpgDoGather.h"
 
+#include "EquipAction.h"
+#include "FishingAction.h"
 #include "GameObject.h"
 #include "GatherNodeMgr.h"
 #include "LootObjectStack.h"
@@ -53,7 +55,69 @@ void NewRpgDoGatherAction::AbandonNode(NewRpgInfo::DoGather& data, bool markVisi
     data.lastReach = 0;
 }
 
-bool NewRpgDoGatherAction::Execute(Event /*event*/)
+// Local change
+void NewRpgDoGatherAction::EndSession(PlayerbotAI* botAI)
+{
+    auto const* data = std::get_if<NewRpgInfo::DoGather>(&botAI->rpgInfo.data);
+    bool const fishing = data && data->skill == SKILL_FISHING;
+    botAI->rpgInfo.ChangeToIdle();
+    if (fishing)
+        EquipUpgradeAction(botAI).Execute(Event());
+}
+
+// Local change
+bool NewRpgDoGatherAction::Skin(NewRpgInfo::DoGather& data)
+{
+    if (data.nodePos == WorldPosition() || data.nodePos.GetMapId() != bot->GetMapId())
+    {
+        data.nodePos = SelectRandomGrindPos(bot);
+        data.lastReach = 0;
+        if (data.nodePos == WorldPosition())
+        {
+            EndSession(botAI);
+            return true;
+        }
+    }
+
+    if (!data.lastReach && bot->GetExactDist(data.nodePos) > 10.0f)
+        return MoveFarTo(data.nodePos) || MoveRandomNear(10.0f);
+
+    if (!data.lastReach)
+        data.lastReach = getMSTime();
+
+    return MoveRandomNear();
+}
+
+// Local change: the master-fishing actions pick the shore spot, cast and loot (via the "use bobber" strategy)
+bool NewRpgDoGatherAction::Fish(NewRpgInfo::DoGather& data, Event event)
+{
+    if (GetMSTimeDiffToNow(data.lastReach) > fishingStayTime)
+    {
+        AbandonNode(data, /*markVisited*/ true);
+        return true;
+    }
+
+    if (bot->isMoving())
+        return false;
+
+    FishingAction fishing(botAI);
+    if (fishing.isUseful())
+        return fishing.Execute(event);
+
+    // isPossible may also set the fishing spot to where the bot stands
+    MoveNearWaterAction moveNearWater(botAI);
+    if (moveNearWater.isPossible())
+        return moveNearWater.Execute(event);
+
+    if (fishing.isUseful())
+        return fishing.Execute(event);
+
+    // no spot to fish this pool from
+    AbandonNode(data, /*markVisited*/ true);
+    return true;
+}
+
+bool NewRpgDoGatherAction::Execute(Event event)  // Local change: event for Fish
 {
     NewRpgInfo& info = botAI->rpgInfo;
     auto* dataPtr = std::get_if<NewRpgInfo::DoGather>(&info.data);
@@ -73,7 +137,7 @@ bool NewRpgDoGatherAction::Execute(Event /*event*/)
     // farming and let the maintenance logic (sell/destroy) catch up.
     if (AI_VALUE(uint8, "bag space") > 80)
     {
-        info.ChangeToIdle();
+        EndSession(botAI);  // Local change
         return true;
     }
 
@@ -85,6 +149,12 @@ bool NewRpgDoGatherAction::Execute(Event /*event*/)
         AbandonNode(data);
         return true;
     }
+
+    // Local change
+    if (data.skill == SKILL_SKINNING)
+        return Skin(data);
+
+    bool const fishing = data.skill == SKILL_FISHING;  // Local change
 
     bool runPeriodicChecks =
         !data.lastPassiveCheck || GetMSTimeDiffToNow(data.lastPassiveCheck) > passiveCheckInterval;
@@ -112,7 +182,7 @@ bool NewRpgDoGatherAction::Execute(Event /*event*/)
     // prevent ping-ponging (bot movement flips which node is closer), so
     // the node last switched away from may not steal the target back
     // until the current target resolves.
-    if (runPeriodicChecks && data.nodeSpawnId)
+    if (runPeriodicChecks && data.nodeSpawnId && !fishing)  // Local change: a pool is fished to the end
     {
         float distToTarget = bot->GetExactDist(data.nodePos);
         GatherNodeSpawn const* live = sGatherNodeMgr.GetNearestLiveNode(bot, data.visited, nodeSwitchDistance);
@@ -140,13 +210,14 @@ bool NewRpgDoGatherAction::Execute(Event /*event*/)
         data.lastSwitchedFrom = 0;
 
         // Prefer a node we can already see to be up over an unverified pick.
-        GatherNodeSpawn const* node = sGatherNodeMgr.GetNearestLiveNode(bot, data.visited, nodeSwitchDistance);
+        GatherNodeSpawn const* node =
+            sGatherNodeMgr.GetNearestLiveNode(bot, data.visited, nodeSwitchDistance, fishing);  // Local change
         if (!node)
-            node = sGatherNodeMgr.GetNextNode(bot, data.visited);
+            node = sGatherNodeMgr.GetNextNode(bot, data.visited, fishing);  // Local change: fishing
         if (!node)
         {
             // nothing (left) to gather in this zone
-            info.ChangeToIdle();
+            EndSession(botAI);  // Local change
             return true;
         }
         data.nodeSpawnId = node->spawnId;
@@ -157,7 +228,7 @@ bool NewRpgDoGatherAction::Execute(Event /*event*/)
 
     // 10yd keeps the bot inside lootDistance (default 15) so the loot
     // pipeline's "loot available" trigger can fire on the node.
-    if (bot->GetExactDist(data.nodePos) > 10.0f)
+    if (bot->GetExactDist(data.nodePos) > (fishing ? fishingApproachDistance : 10.0f))  // Local change: fishing
         return MoveFarTo(data.nodePos);
 
     if (!data.lastReach)
@@ -178,6 +249,9 @@ bool NewRpgDoGatherAction::Execute(Event /*event*/)
     // it (movement cancels the cast).
     if (bot->GetCurrentSpell(CURRENT_GENERIC_SPELL) || bot->GetCurrentSpell(CURRENT_CHANNELED_SPELL))
         return false;
+
+    if (fishing)  // Local change
+        return Fish(data, event);
 
     // Write-off cases that do go into `visited` (this bot can't harvest
     // the node, now or later this session):

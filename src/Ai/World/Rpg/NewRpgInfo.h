@@ -81,6 +81,9 @@ struct NewRpgInfo
         uint32 lastReach{0};
         uint32 lastPassiveCheck{0};
         ObjectGuid::LowType lastSwitchedFrom{0};
+        // Local change: session kind - SKILL_HERBALISM (herb and ore nodes), SKILL_FISHING (fishing pools) or
+        // SKILL_SKINNING (hunt skinnable beasts around nodePos)
+        uint32 skill{0};
     };
     struct Idle
     {
@@ -119,7 +122,7 @@ struct NewRpgInfo
     void ChangeToDoQuest(uint32 questId, Quest const* quest);
     void ChangeToTravelFlight(uint32 flightMasterEntry, WorldPosition flightMasterPos, std::vector<uint32> path);
     void ChangeToOutdoorPvp(ObjectGuid::LowType capturePointSpawnId = 0);
-    void ChangeToDoGather();
+    void ChangeToDoGather(uint32 skill);  // Local change: session kind, see DoGather::skill
     void ChangeToRest();
     void ChangeToIdle();
     bool CanChangeTo(NewRpgStatus status);
