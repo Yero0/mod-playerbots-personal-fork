@@ -102,12 +102,18 @@ bool SetCraftAction::CraftForTrader(std::string const& link)
         return false;
     }
 
+    // Local change: optional craft count after the link ('craft [item] 20'), one stack of at most max stack size
+    size_t const countPos = link.rfind(' ');
+    uint32 crafts = countPos != std::string::npos ? std::max(1, atoi(link.substr(countPos + 1).c_str())) : 1;
+    crafts = std::min(crafts, std::max<uint32>(1, craftable->item->GetMaxStackSize() / craftable->count));
+    uint32 const total = crafts * craftable->count;
+
     // A free slot of its own: merged into a stack the bot already had, the whole stack would go into the trade
     ItemPosCountVec dest;
     auto const tryStore = [&](uint8 bag, uint8 slot)
     {
         dest.clear();
-        return bot->CanStoreNewItem(bag, slot, dest, itemId, craftable->count) == EQUIP_ERR_OK;
+        return bot->CanStoreNewItem(bag, slot, dest, itemId, total) == EQUIP_ERR_OK;
     };
 
     bool stored = false;
@@ -130,14 +136,14 @@ bool SetCraftAction::CraftForTrader(std::string const& link)
     // StoreNewItem can merge into a stack the bot already had; only the new units carry the order price
     CraftData::OrderPrice& order = AI_VALUE(CraftData&, "craft").prices[itemId];
     order.price = (craftable->price + craftable->count - 1) / craftable->count;
-    order.count += craftable->count;
+    order.count += total;
     if (!TradeAction(botAI).TradeItem(item, -1))
         return false;
 
     botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "craft_for_sale", "Crafted %item for %money",
-        {{"%item", chat->FormatItem(craftable->item, craftable->count)},
-         {"%money", chat->formatMoney(craftable->price)}}));
+        {{"%item", chat->FormatItem(craftable->item, total)},
+         {"%money", chat->formatMoney(order.price * total)}}));  // what CheckTrade charges
     return true;
 }
 
