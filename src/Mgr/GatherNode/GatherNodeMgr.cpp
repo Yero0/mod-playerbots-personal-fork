@@ -38,7 +38,7 @@ bool GetGatherSkillFromTemplate(GameObjectTemplate const* goInfo, uint32& skillI
     if (!lockInfo)
         return false;
 
-    for (uint8 j = 0; j < 8; ++j)
+    for (uint8 j = 0; j < MAX_LOCK_CASE; ++j)  // Local change
     {
         if (lockInfo->Type[j] != LOCK_KEY_SKILL)
             continue;
@@ -60,6 +60,7 @@ void GatherNodeMgr::Load()
 {
     uint32 oldMSTime = getMSTime();
     uint32 count = 0;
+    uint32 skipped = 0;  // Local change
 
     // Loot ids with at least one freely lootable row. Quest-gated
     // "gathering" chests (Cactus Apple, Serpentbloom, ...) carry a
@@ -109,15 +110,21 @@ void GatherNodeMgr::Load()
         node.pos = WorldPosition(goData.mapid, goData.posX, goData.posY, goData.posZ);
         node.skillId = skillId;
         node.reqSkillValue = reqSkillValue;
+        // Local change: skip spawns without a DB zoneId. sMapMgr->GetZoneId creates the node's grid for good
+        // (terrain, vmap and mmap tiles), the same startup memory growth fixed in TravelMgr.
         auto zoneItr = dbZoneIds.find(spawnId);
-        uint32 zoneId = zoneItr != dbZoneIds.end()
-                            ? zoneItr->second
-                            : sMapMgr->GetZoneId(PHASEMASK_NORMAL, goData.mapid, goData.posX, goData.posY, goData.posZ);
-        _nodes[goData.mapid][zoneId].push_back(std::move(node));
+        if (zoneItr == dbZoneIds.end())
+        {
+            ++skipped;
+            continue;
+        }
+
+        _nodes[goData.mapid][zoneItr->second].push_back(std::move(node));
         ++count;
     }
 
-    LOG_INFO("playerbots", ">> Loaded {} gather node spawns in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
+    LOG_INFO("playerbots", ">> Loaded {} gather node spawns ({} without zoneId skipped) in {} ms", count, skipped,
+             GetMSTimeDiffToNow(oldMSTime));  // Local change
 }
 
 bool GatherNodeMgr::IsUsable(PlayerbotAI* botAI, Player* bot, GatherNodeSpawn const& node)
