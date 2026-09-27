@@ -784,9 +784,9 @@ AiPlayerbot.EnableRandomBotTrading = 1
 
 # Local change: random bots trade with any real player (not only their group) and craft on order.
 # Opening a trade lists what the bot can craft and the price (craft fee plus the reagents, which the
-# bot supplies itself). Whisper 'craft [item]' or 'craft [item] 20' during the trade: the bot makes it (one
-# stack, up to the item's max stack size), puts it in the
-# trade window and accepts once your gold covers the price. Needs EnableRandomBotTrading 1 or 3.
+# bot supplies itself). Whisper 'craft [item]', or 'craft [item] 20' for one stack of up to the item's
+# max stack size, during the trade: the bot makes it, puts it in the trade window and accepts once your
+# gold covers the price. Needs EnableRandomBotTrading 1 or 3.
 # Default: 0 (disabled)
 AiPlayerbot.RandomBotCraftForPlayers = 0
 
