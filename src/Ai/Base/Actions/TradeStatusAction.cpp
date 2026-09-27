@@ -386,11 +386,12 @@ bool TradeStatusAction::CheckTrade()
         return true;
     }
 
-    std::ostringstream out;
+    // Local change: the total gold to put in, not the shortfall (players replaced their gold with the shortfall)
+    uint32 const required = trader->GetTradeData()->GetMoney() - (delta + discount);
     botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "trade_want_money_for_this",
         "I want %money for this",
-        {{"%money", chat->formatMoney(-(delta + discount))}}));
+        {{"%money", chat->formatMoney(required)}}));
     botAI->PlaySound(TEXT_EMOTE_NO);
     return false;
 }
