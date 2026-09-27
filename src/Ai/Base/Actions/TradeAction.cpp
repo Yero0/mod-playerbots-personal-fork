@@ -10,7 +10,9 @@
 #include "ItemCountValue.h"
 #include "ItemVisitors.h"
 #include "Bag.h"  // Local change
+#include "CraftValue.h"  // Local change
 #include "PlayerbotAI.h"
+#include "Playerbots.h"  // Local change: AI_VALUE
 #include "RandomPlayerbotMgr.h"  // Local change
 
 bool TradeAction::Execute(Event event)
@@ -44,6 +46,12 @@ bool TradeAction::Execute(Event event)
             WorldPacket packet(CMSG_INITIATE_TRADE);
             packet << player->GetGUID();
             bot->GetSession()->HandleInitiateTradeOpcode(packet);
+
+            // Local change: the items named here go in once the window opens (TradeStatusAction)
+            CraftData& craftData = AI_VALUE(CraftData&, "craft");
+            craftData.pendingOrder = text;
+            craftData.pendingOrderTime = time(nullptr);
+            craftData.pendingOrderTrader = player->GetGUID();
             return true;
         }
         else if (player->GetTrader() != bot)

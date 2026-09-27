@@ -7,9 +7,11 @@
 #ifndef PLAYERBOTS_CRAFTVALUE_H
 #define PLAYERBOTS_CRAFTVALUE_H
 
+#include "ObjectGuid.h"  // Local change
 #include "Value.h"
 #include <ctime>  // Local change
 #include <map>
+#include <string>  // Local change
 
 class PlayerbotAI;
 
@@ -29,6 +31,10 @@ public:
     std::map<uint32, OrderPrice> prices;
     // Local change: items advertised in chat, by item id: until when they are kept back from vendors
     std::map<uint32, time_t> advertised;
+    // Local change: a trade command sent before the trade window was open, replayed when it opens
+    std::string pendingOrder;
+    time_t pendingOrderTime{0};
+    ObjectGuid pendingOrderTrader;
     bool IsAdvertised(uint32 item) const
     {
         auto const itr = advertised.find(item);

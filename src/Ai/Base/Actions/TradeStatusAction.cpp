@@ -16,6 +16,7 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "SetCraftAction.h"
+#include "TradeAction.h"  // Local change
 
 #include <algorithm>  // Local change
 
@@ -147,6 +148,19 @@ bool TradeStatusAction::Execute(Event event)
             bot->SetFacingToObject(trader);
 
         BeginTrade();
+
+        // Local change: fill an order whispered before the window was open (at most 10 s old)
+        CraftData& craftData = AI_VALUE(CraftData&, "craft");
+        if (!craftData.pendingOrder.empty())
+        {
+            std::string const order = craftData.pendingOrder;
+            bool const fresh = time(nullptr) - craftData.pendingOrderTime <= 10 &&
+                               craftData.pendingOrderTrader == trader->GetGUID();
+            craftData.pendingOrder.clear();
+            if (fresh)
+                TradeAction(botAI).Execute(Event("trade", order));
+        }
+
         return true;
     }
     return false;

@@ -187,7 +187,7 @@ bool BuyAction::Execute(Event event)
 
                 // Local change: one line per item, "Buying [item]x11" instead of "Buying [item]" 11 times
                 uint32 const countAfter = bot->GetItemCount(proto->ItemId, false);
-                if (countAfter > countBefore)
+                if (countAfter > countBefore && IsRealPlayer(botAI->GetMaster()))  // Local change: not /say
                     botAI->TellMaster("Buying " + ChatHelper::FormatItem(proto, countAfter - countBefore));
             }
         }
@@ -282,7 +282,7 @@ bool BuyAction::BuyItem(VendorItemData const* tItems, ObjectGuid vendorguid, Ite
         uint32 newCount = bot->GetItemCount(itemId, false);
         if (newCount > oldCount)
         {
-            if (announce)  // Local change
+            if (announce && IsRealPlayer(botAI->GetMaster()))  // Local change: announce; not /say without a master
                 botAI->TellMaster("Buying " + ChatHelper::FormatItem(proto, newCount - oldCount));
             return true;
         }

@@ -265,7 +265,10 @@ void SellAction::Sell(Item* item, bool force)
         {
             out << " (keeping " << keepRequirement << ")";
         }
-        botAI->TellMaster(out);
+        // Local change: only a real master hears it; a bot on its own said every vendor sale in /say, which
+        // players read as sell ads for items that were already gone
+        if (IsRealPlayer(botAI->GetMaster()))
+            botAI->TellMaster(out);
 
         bot->PlayDistanceSound(120);
         break;
