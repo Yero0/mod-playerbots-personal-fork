@@ -5,6 +5,7 @@
  */
 
 #include "EnemyPlayerValue.h"
+#include "BattleGroundTactics.h"
 #include "CombatManager.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
@@ -52,6 +53,12 @@ Unit* EnemyPlayerValue::Calculate()
             controllingVehicle = true;
     }
 
+    // Local change: a WSG defender guarding its flag room ignores enemies beyond its leash
+    Position leashCenter;
+    bool const leashed = BGTactics::GetWsgDefenderLeash(bot, leashCenter);
+    auto const beyondLeash = [&](Unit const* unit)
+    { return leashed && unit->GetExactDist2d(&leashCenter) > BGTactics::WS_DEFENDER_LEASH; };
+
     // 1. Check units we are currently in PvP combat with.
     std::vector<Unit*> targets;
     Unit* pVictim = bot->GetVictim();
@@ -59,7 +66,7 @@ Unit* EnemyPlayerValue::Calculate()
     {
         Unit* pTarget = combatRef->GetOther(bot);
         if (!pTarget || pTarget == pVictim || !pTarget->IsPlayer() || !pTarget->CanSeeOrDetect(bot) ||
-            !bot->IsWithinDist(pTarget, VISIBILITY_DISTANCE_NORMAL))
+            !bot->IsWithinDist(pTarget, VISIBILITY_DISTANCE_NORMAL) || beyondLeash(pTarget))
             continue;
 
         if ((bot->GetTeamId() == TEAM_HORDE && pTarget->HasAura(23333)) ||
@@ -111,7 +118,7 @@ Unit* EnemyPlayerValue::Calculate()
         uint32 const aggroDistance = controllingVehicle                                               ? 5.0f
                                      : (controllingCannon || bot->GetHealth() > pTarget->GetHealth()) ? maxAggroDistance
                                                                                                       : 20.0f;
-        if (!bot->IsWithinDist(pTarget, aggroDistance))
+        if (!bot->IsWithinDist(pTarget, aggroDistance) || beyondLeash(pTarget))
             continue;
 
         if (bot->IsWithinLOSInMap(pTarget) &&
@@ -135,7 +142,8 @@ Unit* EnemyPlayerValue::Calculate()
 
                 if (Unit* pAttacker = pMember->getAttackerForHelper())
                     if (pAttacker->IsPlayer() && bot->IsWithinDist(pAttacker, maxAggroDistance * 2.0f) &&
-                        bot->IsWithinLOSInMap(pAttacker) && pAttacker != pVictim && pAttacker->CanSeeOrDetect(bot))
+                        bot->IsWithinLOSInMap(pAttacker) && pAttacker != pVictim && pAttacker->CanSeeOrDetect(bot) &&
+                        !beyondLeash(pAttacker))
                         return pAttacker;
             }
         }

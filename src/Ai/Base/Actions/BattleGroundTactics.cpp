@@ -1439,6 +1439,47 @@ uint8 BGTactics::GetBotStrategyForTeam(Battleground* bg, TeamId teamId)
     return teamId == TEAM_ALLIANCE ? itr->second.allianceStrategy : itr->second.hordeStrategy;
 }
 
+// Local change: WSG defender threshold ("defendersProhab"): a bot defends when its "bg role" is below it. The old
+// switch expected plan values 0-9, but plans are 0-2, so every WSG plan played as balanced.
+static uint8 GetWsgDefenderThreshold(Battleground* bg, TeamId team)
+{
+    if (BGTactics::GetBotStrategyForTeam(bg, Battleground::GetOtherTeamId(team)) == WS_STRATEGY_DEFENSIVE)
+        return 2;
+
+    switch (BGTactics::GetBotStrategyForTeam(bg, team))
+    {
+        case WS_STRATEGY_OFFENSIVE:
+            return 1;
+        case WS_STRATEGY_DEFENSIVE:
+            return 6;
+        default:
+            return 3;
+    }
+}
+
+// Local change: WSG defender leash
+bool BGTactics::GetWsgDefenderLeash(Player* bot, Position& center)
+{
+    Battleground* bg = bot->GetBattleground();
+    if (!bg || !bg->ToBattlegroundWS())
+        return false;
+
+    // With a flag carried, defenders chase the enemy carrier or escort their own
+    if (bg->GetFlagPickerGUID(TEAM_ALLIANCE) || bg->GetFlagPickerGUID(TEAM_HORDE))
+        return false;
+
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI)
+        return false;
+
+    TeamId const team = bot->GetTeamId();
+    if (botAI->GetAiObjectContext()->GetValue<uint32>("bg role")->Get() >= GetWsgDefenderThreshold(bg, team))
+        return false;
+
+    center.Relocate(team == TEAM_ALLIANCE ? WS_FLAG_POS_ALLIANCE : WS_FLAG_POS_HORDE);
+    return bot->GetExactDist2d(&center) <= WS_DEFENDER_LEASH;
+}
+
 bool BGTactics::wsJumpDown()
 {
     Battleground* bg = bot->GetBattleground();
@@ -2153,7 +2194,8 @@ bool BGTactics::selectObjective(bool reset)
                 if (radius > 0.0f)
                 {
                     bot->GetRandomPoint(origin, radius, rx, ry, rz);
-                    if (rz == VMAP_INVALID_HEIGHT_VALUE)
+                    // Local change: was ==, which used the random point only when its height was invalid
+                    if (rz != VMAP_INVALID_HEIGHT_VALUE)
                         target.Relocate(rx, ry, rz);
                     else
                         target.Relocate(origin);
@@ -2172,32 +2214,8 @@ bool BGTactics::selectObjective(bool reset)
             WSBotStrategy strategyHorde = static_cast<WSBotStrategy>(GetBotStrategyForTeam(bg, TEAM_HORDE));
             WSBotStrategy strategyAlliance = static_cast<WSBotStrategy>(GetBotStrategyForTeam(bg, TEAM_ALLIANCE));
             WSBotStrategy strategy = (team == TEAM_ALLIANCE) ? strategyAlliance : strategyHorde;
-            WSBotStrategy enemyStrategy = (team == TEAM_ALLIANCE) ? strategyHorde : strategyAlliance;
 
-            uint8 defendersProhab = 3;  // Default balanced
-
-            switch (static_cast<uint8>(strategy))
-            {
-                case 0:
-                case 1:
-                case 2:
-                case 3:  // Balanced
-                    defendersProhab = 3;
-                    break;
-                case 4:
-                case 5:
-                case 6:
-                case 7:  // Heavy Offense
-                    defendersProhab = 1;
-                    break;
-                case 8:
-                case 9:  // Heavy Defense
-                    defendersProhab = 6;
-                    break;
-            }
-
-            if (enemyStrategy == WS_STRATEGY_DEFENSIVE)
-                defendersProhab = 2;
+            uint8 defendersProhab = GetWsgDefenderThreshold(bg, team);  // Local change: was a broken switch
 
             // Role check
             bool isDefender = role < defendersProhab;
@@ -2251,20 +2269,18 @@ bool BGTactics::selectObjective(bool reset)
                         // Defenders attack enemy FC if found
                         target.Relocate(enemyFC->GetPositionX(), enemyFC->GetPositionY(), enemyFC->GetPositionZ());
                     }
-                    else if (urand(0, 99) < 33)
+                    // Local change: the chance to hold the flag room follows the team's plan (was 33% for all)
+                    else if (urand(0, 99) < (strategy == WS_STRATEGY_DEFENSIVE ? 85u
+                                             : strategy == WS_STRATEGY_BALANCED ? 60u : 33u))
                     {
-                        // 33% chance to roam near own base
                         SetSafePos(team == TEAM_ALLIANCE ? WS_FLAG_HIDE_ALLIANCE[urand(0, 2)] : WS_FLAG_HIDE_HORDE[urand(0, 2)], 5.0f);
                     }
                     else if (teamFC)
                     {
-                        // 70% chance to support own FC
-                        if (urand(0, 99) < 70)
-                        {
-                            target.Relocate(teamFC->GetPositionX(), teamFC->GetPositionY(), teamFC->GetPositionZ());
-                            if (ServerFacade::instance().GetDistance2d(bot, teamFC) < 33.0f)
-                                Follow(teamFC);
-                        }
+                        // Local change: always support own FC (was 70%, the other 30% set no target)
+                        target.Relocate(teamFC->GetPositionX(), teamFC->GetPositionY(), teamFC->GetPositionZ());
+                        if (ServerFacade::instance().GetDistance2d(bot, teamFC) < 33.0f)
+                            Follow(teamFC);
                     }
                     else
                     {

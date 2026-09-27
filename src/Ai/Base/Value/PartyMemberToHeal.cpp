@@ -47,7 +47,9 @@ Unit* PartyMemberToHeal::Calculate()
         for (ObjectGuid const& focusHealTarget : focusHealTargets)
         {
             Player* player = ObjectAccessor::FindPlayer(focusHealTarget);
-            if (!player || !player->IsInWorld() || !player->IsAlive() || !player->IsInSameGroupWith(bot))
+            // Local change: also skip Spirit of Redemption
+            if (!player || !player->IsInWorld() || !player->IsAlive() || player->HasSpiritOfRedemptionAura() ||
+                !player->IsInSameGroupWith(bot))
                 continue;
 
             float health = player->GetHealthPct();
@@ -73,7 +75,8 @@ Unit* PartyMemberToHeal::Calculate()
         Player* player = gref->GetSource();
         if (player->IsGameMaster())
             continue;
-        if (player && player->IsAlive())
+        // Local change: skip Spirit of Redemption, which counts as alive but dies anyway
+        if (player && player->IsAlive() && !player->HasSpiritOfRedemptionAura())
         {
             float health = player->GetHealthPct();
             if (isRaid || health < sPlayerbotAIConfig.mediumHealth || !IsTargetOfSpellCast(player, predicate))

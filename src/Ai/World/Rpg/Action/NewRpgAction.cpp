@@ -24,6 +24,7 @@
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotTextMgr.h"
+#include "Playerbots.h"
 #include "QuestDef.h"
 #include "Random.h"
 #include "SharedDefines.h"
@@ -404,6 +405,40 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             data.lastReach = getMSTime();
             if (bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
+
+            if (Creature* creature = object->ToCreature())
+            {
+                uint32 npcFlags = creature->GetCreatureTemplate()->npcflag;
+
+                // Local change: silent = true on sell/buy/repair (no nod sounds or errors to the master)
+                // Vendors: random bots sell junk then buy useful items unconditionally;
+                // alt/self bots only when the matching EnableAltBot* flag is set.
+                if (npcFlags & UNIT_NPC_FLAG_VENDOR)
+                {
+                    if (sRandomPlayerbotMgr.IsRandomBot(bot))
+                    {
+                        botAI->DoSpecificAction("sell", Event("sell", "vendor"), true);
+                        botAI->DoSpecificAction("buy", Event("buy", "vendor"), true);
+                    }
+                    else
+                    {
+                        int32 const altBotAutoSellLevel = sPlayerbotAIConfig.altBotAutoSellLevel;
+                        if (altBotAutoSellLevel >= 2)
+                            botAI->DoSpecificAction("sell", Event("sell", "vendor"), true);
+                        else if (altBotAutoSellLevel == 1)
+                            botAI->DoSpecificAction("sell", Event("sell", "gray"), true);
+                        if (sPlayerbotAIConfig.enableAltBotAutoBuy)
+                            botAI->DoSpecificAction("buy", Event("buy", "vendor"), true);
+                    }
+                }
+
+                // Repair: repair gear below full durability
+                if ((npcFlags & UNIT_NPC_FLAG_REPAIR) && AI_VALUE(uint8, "durability") < 100)
+                {
+                    bot->SetSelection(data.npcOrGo);
+                    botAI->DoSpecificAction("repair", Event("repair"), true);
+                }
+            }
             return true;
         }
 

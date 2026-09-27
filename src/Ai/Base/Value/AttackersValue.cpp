@@ -5,6 +5,7 @@
  */
 
 #include "AttackersValue.h"
+#include "BattleGroundTactics.h"
 #include "CellImpl.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
@@ -42,6 +43,12 @@ GuidVector AttackersValue::Calculate()
         if (skullTarget && IsValidTarget(skullTarget, bot))
             targets.insert(skullTarget);
     }
+
+    // Local change: a WSG defender guarding its flag room ignores attackers beyond its leash
+    Position leashCenter;
+    if (BGTactics::GetWsgDefenderLeash(bot, leashCenter))
+        std::erase_if(targets, [&](Unit* unit)
+                      { return unit->GetExactDist2d(&leashCenter) > BGTactics::WS_DEFENDER_LEASH; });
 
     for (Unit* unit : targets)
         result.push_back(unit->GetGUID());

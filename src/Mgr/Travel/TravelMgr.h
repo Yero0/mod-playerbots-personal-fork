@@ -15,6 +15,7 @@
 #include <boost/functional/hash.hpp>
 #include <map>
 #include <random>
+#include <tuple>
 
 class Creature;
 class GuidPosition;
@@ -882,6 +883,9 @@ public:
     std::vector<uint32> GetFlightNodesInZone(uint32 zoneId, TeamId team, uint32 excludeNode = 0) const;
     bool SelectAuctioneerByMap(Player* bot, NpcLocation& outAuctioneer);
     std::vector<WorldLocation> const& GetLocsPerLevelCache(uint8 level) { return locsPerLevelCache[level]; }
+    // Local change: zone of a teleport location from the destination cache, 0 if unknown. Asking the map
+    // instead creates the location's grid for good.
+    uint32 GetTeleportLocationZone(WorldLocation const& loc) const;
 
     template <class D, class W, class URBG>
     void weighted_shuffle(D first, D last, W first_weight, W last_weight, URBG&& g)
@@ -999,6 +1003,7 @@ private:
     std::map<uint8, std::vector<BankerLocation>> bankerLocsPerLevelCache;
     std::unordered_map<uint32, WorldLocation> bankerEntryToLocation;
     std::map<uint8, std::vector<WorldLocation>> locsPerLevelCache;
+    std::map<std::tuple<uint32, float, float, float>, uint32> teleportLocationZones;  // Local change
     std::unordered_map<uint32, std::vector<WorldLocation>> creatureSpawnsByTemplate;
     std::map<uint32, LevelBracket> zone2LevelBracket;
 };

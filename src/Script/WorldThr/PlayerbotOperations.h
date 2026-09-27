@@ -337,9 +337,10 @@ public:
                 continue;
             }
 
-            if (member->GetLevel() < 70)
+            // Local change: level-80 members only, as the arena queue requires one level bracket.
+            if (member->GetLevel() < 80)
             {
-                LOG_DEBUG("playerbots", "ArenaGroupFormationOperation: Member {} is below level 70, skipping",
+                LOG_DEBUG("playerbots", "ArenaGroupFormationOperation: Member {} is below level 80, skipping",
                          member->GetName());
                 continue;
             }

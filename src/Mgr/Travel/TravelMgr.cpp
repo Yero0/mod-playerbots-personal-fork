@@ -10,6 +10,7 @@
 #include "ChatHelper.h"
 #include "Corpse.h"
 #include "Creature.h"
+#include "GridTerrainData.h"
 #include "Log.h"
 #include "Map.h"
 #include "MapCollisionData.h"
@@ -4487,6 +4488,14 @@ const std::vector<WorldLocation> TravelMgr::GetTeleportLocations(Player* bot)
     return locsPerLevelCache[level];
 }
 
+// Local change
+uint32 TravelMgr::GetTeleportLocationZone(WorldLocation const& loc) const
+{
+    auto const itr = teleportLocationZones.find(
+        {loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ()});
+    return itr != teleportLocationZones.end() ? itr->second : 0;
+}
+
 const std::vector<WorldLocation> TravelMgr::GetTravelHubs(Player* bot)
 {
     std::vector<WorldLocation> locs = bot->GetTeamId() == TEAM_ALLIANCE
@@ -4643,8 +4652,47 @@ void TravelMgr::PrepareDestinationCache()
     uint32 bankerCount = 0;
 
     LOG_INFO("playerbots", "Preparing destination caches for {} levels...", maxLevel);
+
+    // Local change: read each creature's area from its grid's terrain file, loaded once per grid and freed
+    // again. Map::GetAreaId created every grid for good (terrain, vmap and mmap tiles), several GB of RAM.
+    // The terrain area misses city WMOs, so service NPCs below still use the exact lookup.
+    std::unordered_map<ObjectGuid::LowType, uint32> creatureAreaIds;
+    {
+        std::map<std::tuple<uint32, uint32, uint32>, std::vector<std::pair<ObjectGuid::LowType, CreatureData const*>>>
+            creaturesByGrid;
+        for (auto const& [guid, creatureData] : sObjectMgr->GetAllCreatureData())
+        {
+            if (std::find(sPlayerbotAIConfig.randomBotMaps.begin(), sPlayerbotAIConfig.randomBotMaps.end(),
+                          creatureData.mapid) == sPlayerbotAIConfig.randomBotMaps.end())
+                continue;
+
+            GridCoord const grid = Acore::ComputeGridCoord(creatureData.posX, creatureData.posY);
+            creaturesByGrid[{creatureData.mapid, grid.x_coord, grid.y_coord}].emplace_back(guid, &creatureData);
+        }
+
+        for (auto const& [gridKey, creatures] : creaturesByGrid)
+        {
+            auto const& [mapId, gridX, gridY] = gridKey;
+            GridTerrainData terrain;
+            if (terrain.Load(Acore::StringFormat("{}maps/{:03}{:02}{:02}.map", sWorld->GetDataPath(), mapId, gridX,
+                                                 gridY)) != TerrainMapDataReadResult::Success)
+                continue;
+
+            for (auto const& [guid, creatureData] : creatures)
+                creatureAreaIds[guid] = terrain.getArea(creatureData->posX, creatureData->posY);
+        }
+    }
+
+    // Local change: remember each teleport location's zone, see GetTeleportLocationZone
+    auto const rememberZone = [this](WorldLocation const& loc, uint32 zoneId)
+    {
+        teleportLocationZones.emplace(
+            std::make_tuple(loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ()), zoneId);
+    };
+
     // Temporary map to group creatures by entry and area
     std::map<std::tuple<uint16, int32, int32, int32>, std::vector<CreatureData>> tempLocsCache;
+    std::map<std::tuple<uint16, int32, int32, int32>, uint32> tempLocsZone;  // Local change: first creature's zone
     std::map<uint32, std::map<uint32, std::vector<WorldLocation>>> tempCreatureCache;
     for (auto const& [guid, creatureData] : sObjectMgr->GetAllCreatureData())
     {
@@ -4667,7 +4715,15 @@ void TravelMgr::PrepareDestinationCache()
         if (!map)
             continue;
 
-        AreaTableEntry const* area = sAreaTableStore.LookupEntry(map->GetAreaId(PHASEMASK_NORMAL, x, y, z));
+        // Local change: area from the terrain pre-pass above. Flight masters, innkeepers and bankers keep the
+        // exact lookup, which sees city WMOs such as Undercity and Dalaran; that creates only their few grids.
+        uint32 areaLookupId = 0;
+        if (creatureTemplate->npcflag & (UNIT_NPC_FLAG_FLIGHTMASTER | UNIT_NPC_FLAG_INNKEEPER | UNIT_NPC_FLAG_BANKER))
+            areaLookupId = map->GetAreaId(PHASEMASK_NORMAL, x, y, z);
+        else if (auto const areaItr = creatureAreaIds.find(guid); areaItr != creatureAreaIds.end())
+            areaLookupId = areaItr->second;
+
+        AreaTableEntry const* area = sAreaTableStore.LookupEntry(areaLookupId);
         if (!area)
             continue;
 
@@ -4691,6 +4747,7 @@ void TravelMgr::PrepareDestinationCache()
             int32 roundY = static_cast<int32>(std::lround(y / 50.0f));
             int32 roundZ = static_cast<int32>(std::lround(z / 50.0f));
             tempLocsCache[std::make_tuple(mapId, roundX, roundY, roundZ)].push_back(creatureData);
+            tempLocsZone.emplace(std::make_tuple(mapId, roundX, roundY, roundZ), areaId);  // Local change
             tempCreatureCache[templateEntry][areaId].push_back(WorldLocation(mapId, x, y, z));
         }
         // FLIGHT MASTERS
@@ -4746,6 +4803,7 @@ void TravelMgr::PrepareDestinationCache()
                 {
                     LevelBracket bracket = zone2LevelBracket[areaId];
                     WorldPosition loc(mapId, x + cos(orient) * 5.0f, y + sin(orient) * 5.0f, z + 0.5f, orient + M_PI);
+                    rememberZone(loc, areaId);  // Local change
                     for (uint32 i = bracket.low; i <= bracket.high; i++)
                     {
                         if (forHorde)
@@ -4762,6 +4820,7 @@ void TravelMgr::PrepareDestinationCache()
 
                 LevelBracket bracket = zone2LevelBracket[areaId];
                 WorldPosition loc(mapId, x + cos(orient) * 5.0f, y + sin(orient) * 5.0f, z + 0.5f, orient + M_PI);
+                rememberZone(loc, areaId);  // Local change
                 for (uint32 i = bracket.low; i <= bracket.high; i++)
                 {
                     if (forHorde)
@@ -4815,16 +4874,18 @@ void TravelMgr::PrepareDestinationCache()
         {
             CreatureTemplate const* creatureTemplate = sObjectMgr->GetCreatureTemplate(creatureDataList[0].id);
             uint32 level = (creatureTemplate->minlevel + creatureTemplate->maxlevel + 1) / 2;
+            WorldLocation const loc(std::get<0>(gridTuple),
+                static_cast<float>(std::get<1>(gridTuple)) * 50.0f,
+                static_cast<float>(std::get<2>(gridTuple)) * 50.0f,
+                static_cast<float>(std::get<3>(gridTuple)) * 50.0f);
+            rememberZone(loc, tempLocsZone[gridTuple]);  // Local change
             for (int32 l = (int32)level - (int32)sPlayerbotAIConfig.randomBotTeleLowerLevel;
                  l <= (int32)level + (int32)sPlayerbotAIConfig.randomBotTeleHigherLevel; l++)
             {
                 if (l < 1 || l > int32(maxLevel))
                     continue;
 
-                locsPerLevelCache[(uint8)l].push_back(WorldLocation(std::get<0>(gridTuple),
-                    static_cast<float>(std::get<1>(gridTuple)) * 50.0f,
-                    static_cast<float>(std::get<2>(gridTuple)) * 50.0f,
-                    static_cast<float>(std::get<3>(gridTuple)) * 50.0f));
+                locsPerLevelCache[(uint8)l].push_back(loc);
             }
         }
     }
@@ -4859,6 +4920,9 @@ void TravelMgr::PrepareDestinationCache()
                 continue;
 
             WorldPosition pos(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
+            // Local change: start zone from playercreateinfo
+            if (AreaTableEntry const* startArea = sAreaTableStore.LookupEntry(info->areaId))
+                rememberZone(pos, startArea->zone ? startArea->zone : startArea->ID);
 
             for (int32 l = 1; l <= 5; l++)
             {

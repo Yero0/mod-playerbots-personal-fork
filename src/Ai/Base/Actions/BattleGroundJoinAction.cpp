@@ -158,7 +158,8 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
         if (!member)
             continue;
 
-        if (member->GetLevel() < 70)
+        // Local change: level-80 members only, as the arena queue requires one level bracket.
+        if (member->GetLevel() < 80)
             continue;
 
         if (!group->AddMember(member))

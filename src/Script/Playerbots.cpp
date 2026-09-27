@@ -530,7 +530,8 @@ public:
     {
         BGStrategyData data;
 
-        switch (bg->GetBgTypeID())
+        // Local change: the real type; GetBgTypeID() is BATTLEGROUND_RB for random-queue matches, which rolled no plan
+        switch (bg->GetBgTypeID(true))
         {
             case BATTLEGROUND_WS:
                 data.allianceStrategy = urand(0, WS_STRATEGY_MAX - 1);

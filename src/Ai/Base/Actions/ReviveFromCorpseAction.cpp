@@ -17,6 +17,10 @@
 
 bool ReviveFromCorpseAction::Execute(Event event)
 {
+    // Local change: upstream PR #2834; BG revives go through the BG spirit healer, not a world graveyard
+    if (bot->InBattleground())
+        return false;
+
     Player* groupLeader = botAI->GetGroupLeader();
     Corpse* corpse = bot->GetCorpse();
 
@@ -293,6 +297,10 @@ GraveyardStruct const* SpiritHealerAction::GetGrave(bool startZone)
 
 bool SpiritHealerAction::Execute(Event /*event*/)
 {
+    // Local change: upstream PR #2834
+    if (bot->InBattleground())
+        return false;
+
     Corpse* corpse = bot->GetCorpse();
     if (!corpse)
     {

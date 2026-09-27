@@ -7,6 +7,8 @@
 #include "RandomPlayerbotMgr.h"
 #include "PlayerbotsDatabase.h"
 #include "AiFactory.h"
+#include "ArenaTeam.h"
+#include "ArenaTeamMgr.h"
 #include "Battleground.h"
 #include "BattlegroundMgr.h"
 #include "Cell.h"
@@ -48,6 +50,7 @@
 #include <iomanip>
 #include <random>
 #include <set>
+#include <unordered_set>
 #include <utility>
 
 struct GuidClassRaceInfo
@@ -733,6 +736,15 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
 
         // Shuffle for class balance
         std::shuffle(allCharacters.begin(), allCharacters.end(), rng);
+
+        // Local change: arena team members log in first, so whole teams are online and can queue
+        std::unordered_set<uint32> arenaTeamMembers;
+        for (auto const& [teamId, arenaTeam] : sArenaTeamMgr->GetArenaTeams())
+            for (ArenaTeamMember const& member : arenaTeam->GetMembers())
+                arenaTeamMembers.insert(member.Guid.GetCounter());
+
+        std::stable_partition(allCharacters.begin(), allCharacters.end(),
+                              [&](CharacterInfo const& charInfo) { return arenaTeamMembers.contains(charInfo.guid); });
 
         // Separate characters by faction for phased login
         std::vector<CharacterInfo> allianceChars;
@@ -1587,27 +1599,28 @@ void RandomPlayerbotMgr::Revive(Player* player)
     RandomTeleportGrindForLevel(player);
 }
 
-void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth)
+// Local change: returns whether the bot was teleported (was void)
+bool RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth)
 {
     // ignore when alrdy teleported or not in the world yet.
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
-        return;
+        return false;
 
     // no teleport / movement update when rooted.
     if (bot->IsRooted())
-        return;
+        return false;
 
     // ignore when in queue for battle grounds.
     if (bot->InBattlegroundQueue())
-        return;
+        return false;
 
     // ignore when in battle grounds or arena.
     if (bot->InBattleground() || bot->InArena())
-        return;
+        return false;
 
     // ignore when in group (e.g. world, dungeons, raids) and leader is not a player.
     if (bot->GetGroup() && !bot->GetGroup()->IsLeader(bot->GetGUID()))
-        return;
+        return false;
 
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (botAI)
@@ -1615,7 +1628,7 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         // ignore when in when taxi with boat/zeppelin and has players nearby
         if (bot->HasUnitMovementFlag(MOVEMENTFLAG_ONTRANSPORT) && bot->HasUnitState(UNIT_STATE_IGNORE_PATHFINDING) &&
             botAI->HasPlayerNearby())
-            return;
+            return false;
     }
 
     // if (sPlayerbotAIConfig.randomBotRpgChance < 0)
@@ -1624,7 +1637,7 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
     if (locs.empty())
     {
         LOG_DEBUG("playerbots", "Cannot teleport bot {} - no locations available", bot->GetName().c_str());
-        return;
+        return false;
     }
 
     std::vector<WorldPosition> tlocs;
@@ -1643,7 +1656,7 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
     if (tlocs.empty())
     {
         LOG_DEBUG("playerbots", "Cannot teleport bot {} - all locations removed by filter", bot->GetName().c_str());
-        return;
+        return false;
     }
 
     PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "RandomTeleportByLocations");
@@ -1721,7 +1734,7 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         if (pmo)
             pmo->finish();
 
-        return;
+        return true;
     }
 
     if (pmo)
@@ -1729,6 +1742,7 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
 
     // LOG_ERROR("playerbots", "Cannot teleport bot {} - no locations available ({} locations)", bot->GetName().c_str(),
     //           tlocs.size());
+    return false;
 }
 
 void RandomPlayerbotMgr::PrepareAddclassCache()
@@ -1805,24 +1819,66 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
         std::vector<WorldLocation> locs = sTravelMgr.GetCityLocations(bot);
         if (!locs.empty())
         {
-            RandomTeleport(bot, locs, true);
+            // Local change: a banker trip keeps a parked bot in a city; only a disabled toggle ends parking here
+            if (RandomTeleport(bot, locs, true) && !sPlayerbotAIConfig.randomBotConcentrateInPlayerZone)
+                if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+                    botAI->SetCityParked(false);
             return;
         }
     }
     std::vector<WorldLocation> locs = sTravelMgr.GetTeleportLocations(bot);
-
-    if (sPlayerbotAIConfig.randomBotConcentrateInPlayerZone && !locs.empty())
-    {
-        std::vector<WorldLocation> playerZoneLocs = GetPlayerZoneTeleportLocations(locs, bot);
-        if (!playerZoneLocs.empty())
-            locs = std::move(playerZoneLocs);
-    }
+    bool const toCity = ConcentrateInPlayerZone(locs, bot);  // Local change
 
     if (!locs.empty())
     {
-        RandomTeleport(bot, locs, false);
+        // Local change: parked bots stay put (see PlayerbotAI::SetCityParked); any other teleport ends parking
+        if (RandomTeleport(bot, locs, false))
+            if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+                botAI->SetCityParked(toCity);
         return;
     }
+}
+
+// Local change: RandomBotConcentrateInPlayerZone for both teleport paths. Keeps the locations in a player's zone;
+// failing that, a bot of a faction no online player plays goes to its cities instead of anywhere in the world.
+// Returns whether locs are now city locations; the caller parks the bot once the teleport happened.
+bool RandomPlayerbotMgr::ConcentrateInPlayerZone(std::vector<WorldLocation>& locs, Player* bot)
+{
+    if (!sPlayerbotAIConfig.randomBotConcentrateInPlayerZone || locs.empty())
+        return false;
+
+    auto const enemyOfAllPlayers = [&]()
+    {
+        bool enemy = false;
+        for (Player* player : players)
+        {
+            // players also holds altbots and addclass bots
+            if (!player || !player->IsInWorld() || player->IsGameMaster() || GET_PLAYERBOT_AI(player))
+                continue;
+
+            if (player->GetTeamId() == bot->GetTeamId())
+                return false;
+
+            enemy = true;
+        }
+        return enemy;
+    };
+
+    std::vector<WorldLocation> playerZoneLocs = GetPlayerZoneTeleportLocations(locs, bot);
+    std::vector<WorldLocation> cityLocs;
+    // Same level floor as the banker path in RandomTeleportForLevel; low bots can't use city spots
+    if (playerZoneLocs.empty() && bot->GetLevel() >= 10 && enemyOfAllPlayers())
+        cityLocs = sTravelMgr.GetCityLocations(bot);
+
+    if (!playerZoneLocs.empty())
+        locs = std::move(playerZoneLocs);
+    else if (!cityLocs.empty())
+    {
+        locs = std::move(cityLocs);
+        return true;
+    }
+
+    return false;
 }
 
 // Returns the subset of teleport locations that lie in a zone currently occupied by a real
@@ -1869,7 +1925,11 @@ std::vector<WorldLocation> RandomPlayerbotMgr::GetPlayerZoneTeleportLocations(st
         if (playerMaps.find(loc.GetMapId()) == playerMaps.end())
             continue;
 
-        uint32 zoneId = sMapMgr->GetZoneId(PHASEMASK_NORMAL, loc);
+        // Local change: zone from the destination cache; asking the map creates the location's grid for good
+        uint32 zoneId = sTravelMgr.GetTeleportLocationZone(loc);
+        if (!zoneId)
+            zoneId = sMapMgr->GetZoneId(PHASEMASK_NORMAL, loc);
+
         if (playerMapZones.find(std::make_pair(loc.GetMapId(), zoneId)) == playerMapZones.end())
             continue;
 
@@ -1897,10 +1957,16 @@ void RandomPlayerbotMgr::RandomTeleportGrindForLevel(Player* bot)
         return;
 
     std::vector<WorldLocation> locs = sTravelMgr.GetTeleportLocations(bot);
+
+    bool const toCity = ConcentrateInPlayerZone(locs, bot);  // Local change: revived bots too
+
     LOG_DEBUG("playerbots", "Random teleporting bot {} for level {} ({} locations available)", bot->GetName().c_str(),
               bot->GetLevel(), locs.size());
 
-    RandomTeleport(bot, locs);
+    // Local change: same parking as RandomTeleportForLevel
+    if (RandomTeleport(bot, locs))
+        if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+            botAI->SetCityParked(toCity);
 }
 
 void RandomPlayerbotMgr::RandomTeleport(Player* bot)
@@ -2643,6 +2709,21 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
         if (playerBots.size() == sRandomPlayerbotMgr.GetMaxAllowedBotCount())
         {
             _isBotLogging = false;
+
+            // Local change: once every random bot is online, offer all of them an arena team, so
+            // the team slots fill at startup instead of only when a bot logs in again. Bots below
+            // level 80 or already in a team are skipped by AssignBotToArenaTeam itself.
+            uint32 offered = 0;
+            for (auto const& [guid, other] : playerBots)
+            {
+                if (other && other->GetLevel() >= 80)
+                {
+                    RandomPlayerbotFactory::AssignBotToArenaTeam(other);
+                    ++offered;
+                }
+            }
+            LOG_INFO("playerbots", "[ArenaTeamLevel] All bots logged in; offered an arena team to {} level-80 bots",
+                     offered);
         }
     }
 

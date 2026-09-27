@@ -419,6 +419,10 @@ public:
     bool HasStrategy(std::string const name, BotState type);
     BotState GetState() { return currentState; };
     void ResetStrategies(bool load = false);
+    // Local change: a random bot parked in its city by RandomBotConcentrateInPlayerZone stays put with these
+    void SetCityParked(bool parked);
+    static constexpr char const* CITY_PARKED_STRATEGIES =
+        "+stay,-follow,-passive,-grind,-rpg,-new rpg,-travel,-move random,-duel,-start duel,-pvp";
     void ReInitCurrentEngine();
     void Reset(bool full = false);
     void LeaveOrDisbandGroup();
@@ -590,6 +594,14 @@ public:
     std::vector<Item*> GetInventoryAndEquippedItems();
     std::vector<Item*> GetInventoryItems();
     uint32 GetInventoryItemsCountWithId(uint32 itemId);
+
+    /**
+     * Consolidate all stackable items in the bot's bags: merge partial stacks of the same
+     * entry into the fullest stacks until at most one partial stack remains per entry
+     * (the client's "Consolidate" button; WotLK has no server-side equivalent). Useful
+     * after selling, where partial-stack sells leave fragmented stacks.
+     */
+    void ConsolidateItems();
     bool HasItemInInventory(uint32 itemId);
     std::vector<std::pair<Quest const*, uint32>> GetCurrentQuestsRequiringItemId(uint32 itemId);
     uint32 GetReactDelay();
@@ -612,6 +624,8 @@ public:
     void AddTimedEvent(std::function<void()> callback, uint32 delayMs);
 
 private:
+    bool _cityParked = false;  // Local change, see SetCityParked
+
     static void _fillGearScoreData(Player* player, Item* item, std::vector<uint32>* gearScore, uint32& twoHandScore,
                                    bool mixed = false);
     bool IsTellAllowed(PlayerbotSecurityLevel securityLevel = PLAYERBOT_SECURITY_ALLOW_ALL);

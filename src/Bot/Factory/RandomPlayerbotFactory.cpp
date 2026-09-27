@@ -874,13 +874,23 @@ void RandomPlayerbotFactory::AssignBotToArenaTeam(Player* bot)
     if (sPlayerbotAIConfig.deleteRandomBotArenaTeams)
         return;
 
-    if (bot->GetLevel() < 70)
+    // Local change: only level-80 bots join arena teams; the core rejects a team whose members are
+    // in different level brackets (Group.cpp, ERR_BATTLEGROUND_JOIN_RANGE_INDEX).
+    if (bot->GetLevel() < 80)
         return;
 
-    for (uint32 arena_slot = 0; arena_slot < MAX_ARENA_SLOT; ++arena_slot)
+    // Local change: slots 0-2 only. The core's MAX_ARENA_SLOT is 4, but a player's arena fields hold
+    // three slots, so "slot 3" reads PLAYER_FIELD_HONOR_CURRENCY and every bot with honor looked like
+    // it was already in a team.
+    for (uint32 arena_slot = ARENA_SLOT_2v2; arena_slot <= ARENA_SLOT_5v5; ++arena_slot)
     {
         if (bot->GetArenaTeamId(arena_slot))
+        {
+            // Local change (diagnostic): why a level-80 bot gets no team.
+            LOG_INFO("playerbots", "[ArenaTeamLevel] {} not queued: already in arena team {} (slot {})",
+                     bot->GetName(), bot->GetArenaTeamId(arena_slot), arena_slot);
             return;
+        }
     }
 
     PlayerbotWorldThreadProcessor::instance().QueueOperation(
@@ -889,12 +899,23 @@ void RandomPlayerbotFactory::AssignBotToArenaTeam(Player* bot)
 
 void RandomPlayerbotFactory::AssignBotToArenaTeamInternal(Player* bot)
 {
+    // Local change: check again here, the bot's level can change before this queued step runs.
+    if (bot->GetLevel() < 80)
+        return;
+
     // Check if bot has team, only one per bot to avoid queue conflicts
-    for (uint32 arena_slot = 0; arena_slot < MAX_ARENA_SLOT; ++arena_slot)
+    // Local change: slots 0-2 only (see AssignBotToArenaTeam).
+    for (uint32 arena_slot = ARENA_SLOT_2v2; arena_slot <= ARENA_SLOT_5v5; ++arena_slot)
     {
         if (bot->GetArenaTeamId(arena_slot) ||
             sCharacterCache->GetCharacterArenaTeamIdByGuid(bot->GetGUID(), arena_slot))
+        {
+            // Local change (diagnostic): why a level-80 bot gets no team.
+            LOG_INFO("playerbots", "[ArenaTeamLevel] {} skipped: already in arena team {} (slot {}, character "
+                     "cache {})", bot->GetName(), bot->GetArenaTeamId(arena_slot), arena_slot,
+                     sCharacterCache->GetCharacterArenaTeamIdByGuid(bot->GetGUID(), arena_slot));
             return;
+        }
     }
 
     TeamId const botTeam = bot->GetTeamId();
@@ -916,10 +937,15 @@ void RandomPlayerbotFactory::AssignBotToArenaTeamInternal(Player* bot)
 
         if (!team->AddMember(bot->GetGUID()))
         {
-            LOG_DEBUG("playerbots", "Failed to add bot {} to arena team '{}', trying next candidate",
-                      bot->GetName(), team->GetName());
+            // Local change (diagnostic): INFO instead of DEBUG.
+            LOG_INFO("playerbots", "[ArenaTeamLevel] Failed to add bot {} to arena team '{}', trying next candidate",
+                     bot->GetName(), team->GetName());
             continue;
         }
+
+        // Local change (diagnostic): the level a bot has when it joins a team.
+        LOG_INFO("playerbots", "[ArenaTeamLevel] {} (level {}) joined {}v{} arena team '{}'", bot->GetName(),
+                 bot->GetLevel(), team->GetType(), team->GetType(), team->GetName());
 
         if (team->GetMembersSize() >= static_cast<uint32>(team->GetType()))
         {
@@ -947,6 +973,12 @@ void RandomPlayerbotFactory::AssignBotToArenaTeamInternal(Player* bot)
             return;
         }
     }
+
+    // Local change (diagnostic): no team to join and none to create.
+    LOG_INFO("playerbots", "[ArenaTeamLevel] {} (level {}): no joinable team and no free slot (2v2 {}/{}, 3v3 {}/{}, "
+             "5v5 {}/{}, {} candidate(s))", bot->GetName(), bot->GetLevel(), GetBotArenaTeamCount(ARENA_TYPE_2v2),
+             _configTargets[ARENA_TYPE_2v2], GetBotArenaTeamCount(ARENA_TYPE_3v3), _configTargets[ARENA_TYPE_3v3],
+             GetBotArenaTeamCount(ARENA_TYPE_5v5), _configTargets[ARENA_TYPE_5v5], candidates.size());
 }
 
 void RandomPlayerbotFactory::CreateBotArenaTeam(Player* bot, ArenaType type)
@@ -978,8 +1010,9 @@ void RandomPlayerbotFactory::CreateBotArenaTeam(Player* bot, ArenaType type)
     sArenaTeamMgr->AddArenaTeam(arenateam);
     _botArenaTeamRegistry[type].push_back(arenateam->GetId());
 
-    LOG_DEBUG("playerbots", "Created {}v{} arena team '{}' with captain {}",
-              type, type, teamName, bot->GetName());
+    // Local change (diagnostic): INFO instead of DEBUG, with the captain's level.
+    LOG_INFO("playerbots", "[ArenaTeamLevel] Created {}v{} arena team '{}' with captain {} (level {})",
+             type, type, teamName, bot->GetName(), bot->GetLevel());
 }
 
 uint32 RandomPlayerbotFactory::GetBotArenaTeamCount(ArenaType type)

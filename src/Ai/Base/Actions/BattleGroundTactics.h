@@ -12,6 +12,7 @@
 
 class ChatHandler;
 class Battleground;
+class Player;
 class PlayerbotAI;
 struct Position;
 
@@ -108,6 +109,12 @@ class BGTactics : public MovementAction
 public:
     static bool HandleConsoleCommand(ChatHandler* handler, char const* args);
     uint8 static GetBotStrategyForTeam(Battleground* bg, TeamId teamId);
+
+    // Local change: WSG defender leash. True for a defender guarding its flag room (no flag carried, bot
+    // within WS_DEFENDER_LEASH of its own flag); center is then its own flag's position.
+    static bool GetWsgDefenderLeash(Player* bot, Position& center);
+    // Covers the farthest hide spot (Alliance, about 46 yd from its flag) plus its 5 yd spread
+    static constexpr float WS_DEFENDER_LEASH = 55.0f;
 
     BGTactics(PlayerbotAI* botAI, std::string const name = "bg tactics") : MovementAction(botAI, name) {}
 
