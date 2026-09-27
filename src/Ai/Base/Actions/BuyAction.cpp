@@ -106,6 +106,7 @@ bool BuyAction::Execute(Event event)
                     maxPurchases = 10;  // Allow up to 10 purchases if it's a consumable or projectile
                 }
 
+                uint32 const countBefore = bot->GetItemCount(proto->ItemId, false);  // Local change
                 for (uint32 i = 0; i < maxPurchases; i++)
                 {
                     ItemUsage usage = AI_VALUE2(ItemUsage, "item usage", tItem->item);
@@ -172,7 +173,7 @@ bool BuyAction::Execute(Event event)
                     if (AI_VALUE2(uint32, "free money for", uint32(needMoneyFor)) < price)
                         break;
 
-                    if (!BuyItem(tItems, vendorguid, proto))
+                    if (!BuyItem(tItems, vendorguid, proto, false))  // Local change: announced once below
                         break;
 
                     // Store the best item score per InventoryType
@@ -183,6 +184,11 @@ bool BuyAction::Execute(Event event)
                         botAI->DoSpecificAction("equip upgrades packet action");
                     }
                 }
+
+                // Local change: one line per item, "Buying [item]x11" instead of "Buying [item]" 11 times
+                uint32 const countAfter = bot->GetItemCount(proto->ItemId, false);
+                if (countAfter > countBefore)
+                    botAI->TellMaster("Buying " + ChatHelper::FormatItem(proto, countAfter - countBefore));
             }
         }
         else
@@ -250,7 +256,8 @@ bool BuyAction::CanAfford(VendorItem const* tItem, ItemTemplate const* proto, Cr
     return true;
 }
 
-bool BuyAction::BuyItem(VendorItemData const* tItems, ObjectGuid vendorguid, ItemTemplate const* proto)
+bool BuyAction::BuyItem(VendorItemData const* tItems, ObjectGuid vendorguid, ItemTemplate const* proto,
+                        bool announce)  // Local change: announce
 {
     if (!tItems || !proto)
         return false;
@@ -275,9 +282,8 @@ bool BuyAction::BuyItem(VendorItemData const* tItems, ObjectGuid vendorguid, Ite
         uint32 newCount = bot->GetItemCount(itemId, false);
         if (newCount > oldCount)
         {
-            std::ostringstream out;
-            out << "Buying " << ChatHelper::FormatItem(proto);
-            botAI->TellMaster(out.str());
+            if (announce)  // Local change
+                botAI->TellMaster("Buying " + ChatHelper::FormatItem(proto, newCount - oldCount));
             return true;
         }
 

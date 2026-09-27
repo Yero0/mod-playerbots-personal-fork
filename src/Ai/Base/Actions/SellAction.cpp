@@ -254,7 +254,7 @@ void SellAction::Sell(Item* item, bool force)
             bot->SetMoney(botMoney);
         }
 
-        out << "Selling " << chat->FormatItem(proto);
+        out << "Selling " << chat->FormatItem(proto, countToSell);  // Local change: count
         if (keepRequirement > 0)
         {
             out << " (keeping " << keepRequirement << ")";
