@@ -5,7 +5,6 @@
  */
 
 #include "SetCraftAction.h"
-#include "Bag.h"  // Local change
 #include "ChatHelper.h"
 #include "CraftValue.h"
 #include "Event.h"
@@ -109,23 +108,13 @@ bool SetCraftAction::CraftForTrader(std::string const& link)
     uint32 const total = crafts * craftable->count;
 
     // A free slot of its own: merged into a stack the bot already had, the whole stack would go into the trade
+    uint8 bag = 0;
+    uint8 slot = 0;
     ItemPosCountVec dest;
-    auto const tryStore = [&](uint8 bag, uint8 slot)
-    {
-        dest.clear();
-        return bot->CanStoreNewItem(bag, slot, dest, itemId, total) == EQUIP_ERR_OK;
-    };
-
-    bool stored = false;
-    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END && !stored; ++slot)
-        stored = !bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot) && tryStore(INVENTORY_SLOT_BAG_0, slot);
-
-    for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END && !stored; ++bag)
-        if (Bag* pBag = bot->GetBagByPos(bag))
-            for (uint32 slot = 0; slot < pBag->GetBagSize() && !stored; ++slot)
-                stored = !pBag->GetItemByPos(slot) && tryStore(bag, slot);
-
-    Item* item = stored ? bot->StoreNewItem(dest, itemId, true) : nullptr;
+    Item* item = TradeAction::FindFreeSlot(bot, itemId, total, bag, slot) &&
+                         bot->CanStoreNewItem(bag, slot, dest, itemId, total) == EQUIP_ERR_OK
+                     ? bot->StoreNewItem(dest, itemId, true)
+                     : nullptr;
     if (!item)
     {
         botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(

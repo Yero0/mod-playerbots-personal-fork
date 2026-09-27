@@ -8,6 +8,7 @@
 #define PLAYERBOTS_CRAFTVALUE_H
 
 #include "Value.h"
+#include <ctime>  // Local change
 #include <map>
 
 class PlayerbotAI;
@@ -26,6 +27,13 @@ public:
         uint32 count{0};
     };
     std::map<uint32, OrderPrice> prices;
+    // Local change: items advertised in chat, by item id: until when they are kept back from vendors
+    std::map<uint32, time_t> advertised;
+    bool IsAdvertised(uint32 item) const
+    {
+        auto const itr = advertised.find(item);
+        return itr != advertised.end() && itr->second > time(nullptr);
+    }
 
     bool IsEmpty() { return itemId == 0; }
     void Reset() { itemId = 0; }

@@ -20,8 +20,12 @@ public:
     bool Execute(Event event) override;
 
     bool TradeItem(Item const* item, int8 slot);  // Local change: public, used by SetCraftAction
+    // Local change: an empty bag slot that can hold `count` of the item (no merging into other stacks)
+    static bool FindFreeSlot(Player* bot, uint32 itemId, uint32 count, uint8& bag, uint8& slot);
 
 private:
+    bool TradeAmount(std::vector<Item*> const& items, uint32 amount);  // Local change
+
     static std::map<std::string, uint32> slots;
 };
 

@@ -929,6 +929,25 @@ void PlayerbotAI::LeaveOrDisbandGroup()
     bot->GetSession()->QueuePacket(packet);
 }
 
+// Local change: with RandomBotCraftForPlayers, the real player a random bot trades with may whisper an item link
+// to buy it (TradeAction). Only a message that is exactly one link plus an optional amount passes, so no other
+// command can ride along ("[item]" or "[item] 5"; ExternalEventHelper turns it into the "c" and "t" commands).
+bool PlayerbotAI::IsTradeOrder(std::string const& text, uint32 type, Player* from)
+{
+    if (!sPlayerbotAIConfig.randomBotCraftForPlayers || type != CHAT_MSG_WHISPER || !from || bot->GetTrader() != from ||
+        !IsRealPlayer(from) || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+
+    if (text.rfind("|c", 0) != 0 || text.find("|Hitem:") == std::string::npos)
+        return false;
+
+    size_t const linkEnd = text.find("|h|r");
+    if (linkEnd == std::string::npos || text.find("|H", linkEnd) != std::string::npos)
+        return false;
+
+    return text.find_first_not_of(" 0123456789", linkEnd + 4) == std::string::npos;
+}
+
 bool PlayerbotAI::IsAllowedCommand(std::string const text)
 {
     if (unsecuredCommands.empty())
@@ -958,7 +977,9 @@ bool PlayerbotAI::IsAllowedCommand(std::string const text)
 
 void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fromPlayer)
 {
-    if (!GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, type != CHAT_MSG_WHISPER, fromPlayer))
+    // Local change: an item link (to buy it) from the player this random bot trades with, see IsTradeOrder
+    bool const tradeOrder = IsTradeOrder(text, type, fromPlayer);
+    if (!tradeOrder && !GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, type != CHAT_MSG_WHISPER, fromPlayer))
         return;
 
     if (type == CHAT_MSG_ADDON)
@@ -1021,7 +1042,7 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
         fromPlayer->SendDirectMessage(&data);
         return;
     }
-    if (!IsAllowedCommand(filtered) &&
+    if (!IsAllowedCommand(filtered) && !tradeOrder &&  // Local change: tradeOrder
         (!GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_ALLOW_ALL, type != CHAT_MSG_WHISPER, fromPlayer)))
         return;
 

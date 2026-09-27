@@ -9,7 +9,9 @@
 #include "Event.h"
 #include "ItemCountValue.h"
 #include "ItemVisitors.h"
+#include "Bag.h"  // Local change
 #include "PlayerbotAI.h"
+#include "RandomPlayerbotMgr.h"  // Local change
 
 bool TradeAction::Execute(Event event)
 {
@@ -63,6 +65,14 @@ bool TradeAction::Execute(Event event)
     if (found.empty())
         return false;
 
+    // Local change: a real player buying from a random bot names an amount of the item, not a number of stacks;
+    // only an explicit trailing number counts (the default of 1 above also applies to names without a space)
+    bool const hasAmount = pos != std::string::npos && pos + 1 < text.size() &&
+                           text.find_first_not_of("0123456789", pos + 1) == std::string::npos;
+    if (hasAmount && count > 0 && sPlayerbotAIConfig.randomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) &&
+        IsRealPlayer(bot->GetTrader()))
+        return TradeAmount(found, count);
+
     uint32 traded = 0;
     for (Item* item : found)
     {
@@ -75,6 +85,73 @@ bool TradeAction::Execute(Event event)
     }
 
     return true;
+}
+
+// Local change
+bool TradeAction::FindFreeSlot(Player* bot, uint32 itemId, uint32 count, uint8& bag, uint8& slot)
+{
+    ItemPosCountVec dest;
+    auto const fits = [&](uint8 b, uint8 s)
+    {
+        dest.clear();
+        if (bot->CanStoreNewItem(b, s, dest, itemId, count) != EQUIP_ERR_OK)
+            return false;
+
+        bag = b;
+        slot = s;
+        return true;
+    };
+
+    for (uint8 s = INVENTORY_SLOT_ITEM_START; s < INVENTORY_SLOT_ITEM_END; ++s)
+        if (!bot->GetItemByPos(INVENTORY_SLOT_BAG_0, s) && fits(INVENTORY_SLOT_BAG_0, s))
+            return true;
+
+    for (uint8 b = INVENTORY_SLOT_BAG_START; b < INVENTORY_SLOT_BAG_END; ++b)
+        if (Bag* pBag = bot->GetBagByPos(b))
+            for (uint32 s = 0; s < pBag->GetBagSize(); ++s)
+                if (!pBag->GetItemByPos(s) && fits(b, s))
+                    return true;
+
+    return false;
+}
+
+// Local change: whole stacks while they fit the amount, then the rest split off into a free slot
+bool TradeAction::TradeAmount(std::vector<Item*> const& items, uint32 amount)
+{
+    bool traded = false;
+    for (Item* item : items)
+    {
+        if (!amount || !bot->GetTrader())
+            break;
+
+        if (item->IsInTrade() || !item->CanBeTraded())
+            continue;
+
+        if (item->GetCount() <= amount)
+        {
+            if (TradeItem(item, -1))
+            {
+                amount -= item->GetCount();
+                traded = true;
+            }
+            continue;
+        }
+
+        uint8 bag = 0;
+        uint8 slot = 0;
+        if (!FindFreeSlot(bot, item->GetEntry(), amount, bag, slot))
+            break;
+
+        bot->SplitItem(item->GetPos(), (uint16(bag) << 8) | slot, amount);
+        if (Item* part = bot->GetItemByPos(bag, slot))
+            if (TradeItem(part, -1))
+            {
+                amount = 0;
+                traded = true;
+            }
+    }
+
+    return traded;
 }
 
 bool TradeAction::TradeItem(Item const* item, int8 slot)

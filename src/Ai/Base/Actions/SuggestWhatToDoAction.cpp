@@ -9,6 +9,7 @@
 #include "BroadcastHelper.h"
 #include "Channel.h"
 #include "ChatHelper.h"
+#include "CraftValue.h"  // Local change
 #include "Event.h"
 #include "ItemVisitors.h"
 #include "Playerbots.h"
@@ -364,6 +365,10 @@ bool SuggestTradeAction::Execute(Event /*event*/)
     if (!price)
         return false;
 
-    BroadcastHelper::BroadcastSuggestSell(botAI, proto, count, price, bot);
+    // Local change: an advertised item stays in the bags for a while, so a player answering the ad can buy it
+    if (BroadcastHelper::BroadcastSuggestSell(botAI, proto, count, price, bot) &&
+        sPlayerbotAIConfig.randomBotCraftForPlayers)
+        AI_VALUE(CraftData&, "craft").advertised[item] = time(nullptr) + 30 * MINUTE;
+
     return true;
 }

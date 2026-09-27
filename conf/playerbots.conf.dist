@@ -786,7 +786,9 @@ AiPlayerbot.EnableRandomBotTrading = 1
 # Opening a trade lists what the bot can craft and the price (craft fee plus the reagents, which the
 # bot supplies itself). Whisper 'craft [item]', or 'craft [item] 20' for one stack of up to the item's
 # max stack size, during the trade: the bot makes it, puts it in the trade window and accepts once your
-# gold covers the price. Needs EnableRandomBotTrading 1 or 3.
+# gold covers the price. To buy from the bot's bags, whisper the item link, or '[item] 5' for an amount.
+# A bot keeps items it advertised in chat for 30 minutes instead of selling them to a vendor.
+# Needs EnableRandomBotTrading 1 or 3.
 # Default: 0 (disabled)
 AiPlayerbot.RandomBotCraftForPlayers = 0
 

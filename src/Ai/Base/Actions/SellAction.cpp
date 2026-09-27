@@ -8,6 +8,7 @@
 
 #include "SellAction.h"
 #include "ChatHelper.h"
+#include "CraftValue.h"  // Local change
 #include "Event.h"
 #include "ItemPackets.h"
 #include "ItemUsageValue.h"
@@ -84,6 +85,11 @@ public:
     {
         ItemUsage usage = context->GetValue<ItemUsage>("item usage", item->GetEntry())->Get();
         if (usage != ITEM_USAGE_VENDOR && usage != ITEM_USAGE_AH)
+            return true;
+
+        // Local change: kept for players answering the bot's sell ad
+        if (sPlayerbotAIConfig.randomBotCraftForPlayers &&
+            context->GetValue<CraftData&>("craft")->Get().IsAdvertised(item->GetEntry()))
             return true;
 
         return SellItemsVisitor::Visit(item);

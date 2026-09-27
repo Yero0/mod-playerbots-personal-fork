@@ -539,6 +539,7 @@ public:
     static uint32 GetMixedGearScore(Player* player, bool withBags, bool withBank, uint32 topN = 0);
     bool HasSkill(SkillType skill);
     bool IsAllowedCommand(std::string const text);
+    bool IsTradeOrder(std::string const& text, uint32 type, Player* from);  // Local change
     float GetRange(std::string const type);
 
     Player* GetBot() { return bot; }
