@@ -36,6 +36,8 @@ class AddGatheringLootAction : public AddAllLootAction
 public:
     AddGatheringLootAction(PlayerbotAI* botAI) : AddAllLootAction(botAI, "add gathering loot") {}
 
+    bool isUseful() override;  // Local change
+
 protected:
     bool AddLoot(ObjectGuid guid) override;
 };

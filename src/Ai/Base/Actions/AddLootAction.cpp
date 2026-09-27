@@ -41,6 +41,14 @@ bool AddLootAction::isUseful() { return true; }
 
 bool AddAllLootAction::isUseful() { return true; }
 
+// Local change: every gathering loot needs one of these skills (LootObject::IsLootPossible), so bots without
+// them skip the scan of nearby objects and corpses
+bool AddGatheringLootAction::isUseful()
+{
+    return botAI->HasSkill(SKILL_HERBALISM) || botAI->HasSkill(SKILL_MINING) || botAI->HasSkill(SKILL_SKINNING) ||
+           botAI->HasSkill(SKILL_ENGINEERING) || botAI->HasSkill(SKILL_LOCKPICKING);
+}
+
 bool AddAllLootAction::AddLoot(ObjectGuid guid) { return AI_VALUE(LootObjectStack*, "available loot")->Add(guid); }
 
 bool AddGatheringLootAction::AddLoot(ObjectGuid guid)
