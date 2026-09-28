@@ -14,7 +14,7 @@
   `.claude/handoff/playerbots-fork-handoff-2026-09-26.md` §3 (local only, gitignored).
 - Never build and never run `../AzerothCore/Compile-AzerothCore-Playerbots.ps1`; the user copies files
   to the server and rebuilds manually.
-- Nothing can be compiled here: review every C++ change with the `code-reviewer` agent (plus
-  `code-validator` if useful) before handing it over, always spawned with the Agent tool's `model: "sonnet"`
+- Nothing can be compiled here: review every C++ change with the `code-reviewer` agent before handing it
+  over, always spawned with the Agent tool's `model: "sonnet"`
   parameter (the frontmatter `model:` is ignored here; without the parameter they ran on the session model).
   Not the `code-review` skill: it runs on the session model.
