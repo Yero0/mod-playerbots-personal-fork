@@ -996,8 +996,8 @@ WorldPosition NewRpgBaseAction::SelectRandomGrindPos(Player* bot)
         if (bot->GetExactDist(loc) > 2500.0f)
             continue;
 
-        if (!inCity && bot->GetMap()->GetZoneId(bot->GetPhaseMask(), loc.GetPositionX(), loc.GetPositionY(),
-                                                loc.GetPositionZ()) != bot->GetZoneId())
+        // Local change: cached zone; Map::GetZoneId loads (and keeps) every grid it touches, up to 350 ms
+        if (!inCity && sTravelMgr.GetTeleportLocationZone(loc) != bot->GetZoneId())
             continue;
 
         if (bot->GetExactDist(loc) < hiRange)
@@ -1052,8 +1052,8 @@ WorldPosition NewRpgBaseAction::SelectRandomCampPos(Player* bot)
         if (bot->GetExactDist(loc) < 50.0f)
             continue;
 
-        if (!inCity && bot->GetMap()->GetZoneId(bot->GetPhaseMask(), loc.GetPositionX(), loc.GetPositionY(),
-                                                loc.GetPositionZ()) != bot->GetZoneId())
+        // Local change: cached zone, see SelectRandomGrindPos
+        if (!inCity && sTravelMgr.GetTeleportLocationZone(loc) != bot->GetZoneId())
             continue;
 
         prepared_locs.push_back(loc);
