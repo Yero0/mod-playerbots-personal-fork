@@ -44,6 +44,19 @@ GuidVector AttackersValue::Calculate()
             targets.insert(skullTarget);
     }
 
+    // players are never on threat lists: add valid enemy players in battlegrounds and arenas
+    // Local change: into the set before the WSG leash below (PR #2855 added them to the result after it)
+    if (bot->InBattleground())
+    {
+        GuidVector possibleTargets = AI_VALUE(GuidVector, "possible targets");
+        for (ObjectGuid const guid : possibleTargets)
+        {
+            Unit* unit = botAI->GetUnit(guid);
+            if (unit && unit->IsPlayer() && IsValidTarget(unit, bot))
+                targets.insert(unit);
+        }
+    }
+
     // Local change: a WSG defender guarding its flag room ignores attackers beyond its leash
     Position leashCenter;
     if (BGTactics::GetWsgDefenderLeash(bot, leashCenter))
@@ -55,18 +68,6 @@ GuidVector AttackersValue::Calculate()
 
     if (bot->duel && bot->duel->Opponent)
         result.push_back(bot->duel->Opponent->GetGUID());
-
-    // workaround for bots of same faction not fighting in arena
-    if (bot->InArena())
-    {
-        GuidVector possibleTargets = AI_VALUE(GuidVector, "possible targets");
-        for (ObjectGuid const guid : possibleTargets)
-        {
-            Unit* unit = botAI->GetUnit(guid);
-            if (unit && unit->IsPlayer() && IsValidTarget(unit, bot))
-                result.push_back(unit->GetGUID());
-        }
-    }
 
     return result;
 }
