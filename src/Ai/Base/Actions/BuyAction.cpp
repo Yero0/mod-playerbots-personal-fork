@@ -67,26 +67,24 @@ bool BuyAction::Execute(Event event)
             calculator.SetItemSetBonus(false);
             calculator.SetOverflowPenalty(false);
 
+            // Local change: score each item once (the comparator scored both items on every comparison, up to
+            // 138 ms at big vendors) and sort by score, then item level: mixing the two per pair was no strict
+            // weak ordering, which is undefined behaviour in std::sort
+            std::unordered_map<uint32, float> scores;
+            for (VendorItem const* vendorItem : m_items_sorted)
+                scores.emplace(vendorItem->item, calculator.CalculateItem(vendorItem->item));
+
             std::sort(m_items_sorted.begin(), m_items_sorted.end(),
-                [&calculator](VendorItem* i, VendorItem* j)
-                {
-                    ItemTemplate const* item1 = sObjectMgr->GetItemTemplate(i->item);
-                    ItemTemplate const* item2 = sObjectMgr->GetItemTemplate(j->item);
+                      [&scores](VendorItem const* i, VendorItem const* j)
+                      {
+                          float const score1 = scores.at(i->item);
+                          float const score2 = scores.at(j->item);
+                          if (score1 != score2)
+                              return score1 > score2;  // Sort in descending order (highest score first)
 
-                    if (!item1 || !item2)
-                        return false;
-
-                    float score1 = calculator.CalculateItem(item1->ItemId);
-                    float score2 = calculator.CalculateItem(item2->ItemId);
-
-                    // Fallback to itemlevel if either score is 0
-                    if (score1 == 0 || score2 == 0)
-                    {
-                        score1 = item1->ItemLevel;
-                        score2 = item2->ItemLevel;
-                    }
-                    return score1 > score2; // Sort in descending order (highest score first)
-                });
+                          return sObjectMgr->GetItemTemplate(i->item)->ItemLevel >
+                                 sObjectMgr->GetItemTemplate(j->item)->ItemLevel;
+                      });
 
             std::unordered_map<uint32, float> bestPurchasedItemScore;  // Track best item score per InventoryType
 
@@ -113,8 +111,7 @@ bool BuyAction::Execute(Event event)
 
                     uint32 invType = proto->InventoryType;
 
-                    // Calculate item score
-                    float newScore = calculator.CalculateItem(proto->ItemId);
+                    float const newScore = scores.at(tItem->item);  // Local change: scored once above
 
                     // Skip if we already bought a better item for this slot
                     if (bestPurchasedItemScore.find(invType) != bestPurchasedItemScore.end() &&
