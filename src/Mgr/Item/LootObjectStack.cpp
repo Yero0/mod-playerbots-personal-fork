@@ -288,9 +288,8 @@ bool LootObject::IsLootPossible(Player* bot)
 
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)
-    {
         return false;
-    }
+
     if (reqItem && !bot->HasItemCount(reqItem, 1))
         return false;
 
@@ -323,6 +322,23 @@ bool LootObject::IsLootPossible(Player* bot)
 
     if (!botAI->HasSkill((SkillType)skillId))
         return false;
+
+    // Prevents bot from getting stuck in an infinite loop of
+    // gathering herb/ore/skin -> bag too full, don't pick up -> gather again
+    // Local change: moved below the skill check (upstream #2638 has it above), since "bag space" is not cached
+    // and GetNearest calls this for every loot object
+    bool gatheringObject = skillId == SKILL_HERBALISM || skillId == SKILL_MINING || skillId == SKILL_SKINNING ||
+                           skillId == SKILL_ENGINEERING;
+
+    Player* master = botAI->GetMaster();
+    bool hasActivePlayerMaster = master && !GET_PLAYERBOT_AI(master);
+    if (gatheringObject && !hasActivePlayerMaster)
+    {
+        uint8 bagUsage = botAI->GetAiObjectContext()->GetValue<uint8>("bag space")->Get();
+
+        if (bagUsage > 80)
+            return false;
+    }
 
     if (!reqSkillValue)
         return true;
