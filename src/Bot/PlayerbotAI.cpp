@@ -4672,6 +4672,13 @@ bool PlayerbotAI::AllowActive(ActivityType activityType)
     if (activityType == PACKET_ACTIVITY)
         return true;
 
+    // Local change: a city-parked bot idles until a real player could see it. Minimal ticks still run
+    // relevance-100 actions, so the "bg" strategy keeps queueing it for battlegrounds and arenas.
+    if (_cityParked && sPlayerbotAIConfig.randomBotCityParkedIdle && !bot->IsInCombat() &&
+        !bot->InBattlegroundQueue() && WorldPosition(bot).isOverworld() &&
+        !HasPlayerNearby(bot->GetMap()->GetVisibilityRange()))
+        return false;
+
     // all bots forced active, no rotation or scaling needed
     if (sPlayerbotAIConfig.botActiveAlone >= 100 && !sPlayerbotAIConfig.botActiveAloneSmartScale)
         return true;

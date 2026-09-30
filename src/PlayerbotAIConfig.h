@@ -396,6 +396,7 @@ public:
     std::unordered_map<NewRpgStatus, uint32> RpgStatusProbWeight;
     bool syncLevelWithPlayers;
     bool randomBotConcentrateInPlayerZone;
+    bool randomBotCityParkedIdle;  // Local change
     bool autoLearnQuestSpells;
     bool autoTeleportForLevel;
     bool randomBotGroupNearby;

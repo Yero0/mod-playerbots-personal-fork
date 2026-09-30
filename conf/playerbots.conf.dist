@@ -747,6 +747,12 @@ AiPlayerbot.SyncLevelWithPlayers = 0
 # Default: 0 (disabled)
 AiPlayerbot.RandomBotConcentrateInPlayerZone = 0
 
+# Local change: city-parked bots (see RandomBotConcentrateInPlayerZone) skip their AI, like bots idled by
+# BotActiveAlone, until a real player comes within visibility range or they enter combat. Applies even with
+# BotActiveAlone = 100. They still queue for battlegrounds and arenas, and are fully active while queued.
+# Default: 0 (disabled)
+AiPlayerbot.RandomBotCityParkedIdle = 0
+
 # Mark many quests ≤ bot level as complete (slows down bot creation)
 # Default: 0 (disabled)
 AiPlayerbot.PreQuests = 0

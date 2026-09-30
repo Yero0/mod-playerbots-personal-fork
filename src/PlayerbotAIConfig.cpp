@@ -744,6 +744,8 @@ bool PlayerbotAIConfig::Initialize()
     syncLevelWithPlayers = sConfigMgr->GetOption<bool>("AiPlayerbot.SyncLevelWithPlayers", false);
     randomBotConcentrateInPlayerZone =
         sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotConcentrateInPlayerZone", false);
+    // Local change
+    randomBotCityParkedIdle = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotCityParkedIdle", false);
     randomBotGroupNearby = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotGroupNearby", false);
 
     // arena
