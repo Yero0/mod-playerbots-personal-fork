@@ -24,6 +24,12 @@ void BattlegroundStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode("dead", { NextAction("bg reset objective force", ACTION_EMERGENCY)}));
 }
 
+// Local change
+void BgRegroupStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
+{
+    triggers.push_back(new TriggerNode("bg outnumbered", {NextAction("bg regroup", ACTION_MOVE + 5.0f)}));
+}
+
 void WarsongStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     triggers.push_back(new TriggerNode("bg active", { NextAction("bg check flag", ACTION_EMERGENCY )}));

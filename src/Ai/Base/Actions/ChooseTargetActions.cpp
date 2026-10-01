@@ -20,6 +20,10 @@ bool AttackEnemyPlayerAction::isUseful()
     if (PlayerHasFlag::IsCapturingFlag(bot))
         return false;
 
+    // Local change: an outnumbered bot does not start fights (see "bg regroup")
+    if (AI_VALUE(bool, "bg outnumbered"))
+        return false;
+
     return !sPlayerbotAIConfig.IsPvpProhibited(bot->GetZoneId(), bot->GetAreaId());
 }
 

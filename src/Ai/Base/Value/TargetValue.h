@@ -12,6 +12,7 @@
 #include "Value.h"
 
 class PlayerbotAI;
+class Player;  // Local change
 class ThreatManager;
 class Unit;
 enum class TargetValueExclusionType : uint8;
@@ -53,6 +54,11 @@ public:
         : UnitCalculatedValue(botAI, name, checkInterval)
     {
     }
+
+    // Local change: battleground role tactics (AiPlayerbot.BattlegroundCombatTactics)
+    static constexpr float BG_ROLE_RANGE = 30.0f;
+    // unit is an enemy player hitting a friendly healer within BG_ROLE_RANGE of bot
+    static bool IsAttackingHealer(Unit* unit, Player* bot);
 
 protected:
     Unit* FindTarget(FindTargetStrategy* strategy);

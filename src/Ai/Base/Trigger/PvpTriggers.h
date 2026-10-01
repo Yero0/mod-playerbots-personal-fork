@@ -19,6 +19,15 @@ public:
     bool IsActive() override;
 };
 
+// Local change: see BgOutnumberedValue
+class BgOutnumberedTrigger : public Trigger
+{
+public:
+    BgOutnumberedTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bg outnumbered") {}
+
+    bool IsActive() override;
+};
+
 class PlayerHasNoFlag : public Trigger
 {
 public:

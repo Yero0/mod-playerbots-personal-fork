@@ -175,3 +175,28 @@ float EnemyPlayerValue::GetMaxAttackDistance()
 
     return 40.0f;
 }
+
+// Local change
+bool BgOutnumberedValue::Calculate()
+{
+    if (!sPlayerbotAIConfig.battlegroundCombatTactics || !bot->InBattleground() || bot->InArena())
+        return _outnumbered = false;
+
+    auto const countNear = [&](GuidVector const& guids, float range)
+    {
+        uint32 count = 0;
+        for (ObjectGuid const guid : guids)
+        {
+            Unit* unit = botAI->GetUnit(guid);
+            if (unit && unit->IsPlayer() && unit->IsAlive() && bot->IsWithinDist(unit, range))
+                ++count;
+        }
+        return count;
+    };
+
+    float const enemyRange = _outnumbered ? BG_OUTNUMBERED_EXIT_RANGE : TargetValue::BG_ROLE_RANGE;
+    uint32 const enemies = countNear(AI_VALUE(GuidVector, "nearest enemy players"), enemyRange);
+    uint32 const allies =
+        countNear(AI_VALUE(GuidVector, "nearest friendly players"), TargetValue::BG_ROLE_RANGE) + 1;  // + the bot
+    return _outnumbered = enemies >= allies + BG_OUTNUMBERED_MARGIN;
+}

@@ -1657,6 +1657,12 @@ AiPlayerbot.RandomBotJoinBG = 1
 # Enable auto-joining of battlegrounds - have bots start battlegrounds and arenas on their own
 AiPlayerbot.RandomBotAutoJoinBG = 0
 
+# Local change: role-aware battleground combat. DPS focus enemy healers within 30 yards (arenas too),
+# tanks attack enemy players hitting a friendly healer, and in battlegrounds a bot outnumbered by 2 or
+# more enemy players within 30 yards does not start fights and falls back to the nearest ally.
+# Default: 0 (disabled)
+AiPlayerbot.BattlegroundCombatTactics = 0
+
 # Required Configuration for RandomBotAutoJoinBG
 #
 # Known issue: When enabling many brackets in combination with multiple instances, it can lead to more

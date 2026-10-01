@@ -17,6 +17,7 @@
 #include "Playerbots.h"
 #include "PositionValue.h"
 #include "SharedDefines.h"
+#include "TargetValue.h"  // Local change
 #include "TemporarySummon.h"
 #include "ThreatManager.h"
 #include "Timer.h"
@@ -553,6 +554,11 @@ bool TankAssistTrigger::IsActive()
     Unit* tankTarget = AI_VALUE(Unit*, "tank target");
     if (!tankTarget || currentTarget == tankTarget)
         return false;
+
+    // Local change: peel an enemy player off a healer even without aggro on the current target
+    if (sPlayerbotAIConfig.battlegroundCombatTactics && bot->InBattleground() &&
+        TargetValue::IsAttackingHealer(tankTarget, bot))
+        return true;
 
     return AI_VALUE2(bool, "has aggro", "current target");
 }

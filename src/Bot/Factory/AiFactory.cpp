@@ -493,6 +493,10 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
         engine->removeStrategy("flee", false);
         engine->removeStrategy("threat", false);
         engine->addStrategy("boost", false);
+
+        // Local change
+        if (sPlayerbotAIConfig.battlegroundCombatTactics && !player->InArena())
+            engine->addStrategy("bg regroup", false);
     }
 }
 
@@ -710,6 +714,8 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
             nonCombatEngine->addStrategy("arena", false);
             nonCombatEngine->removeStrategy("mount", false);
         }
+        else if (sPlayerbotAIConfig.battlegroundCombatTactics)  // Local change
+            nonCombatEngine->addStrategy("bg regroup", false);
     }
 }
 

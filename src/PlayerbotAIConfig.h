@@ -251,6 +251,7 @@ public:
 
     bool randomBotJoinBG;
     bool randomBotAutoJoinBG;
+    bool battlegroundCombatTactics;  // Local change
 
     std::string randomBotAutoJoinICBrackets;
     std::string randomBotAutoJoinEYBrackets;

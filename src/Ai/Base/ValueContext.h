@@ -146,6 +146,7 @@ public:
         creators["dps aoe target"] = &ValueContext::dps_aoe_target;
         creators["least hp target"] = &ValueContext::least_hp_target;
         creators["enemy player target"] = &ValueContext::enemy_player_target;
+        creators["bg outnumbered"] = &ValueContext::bg_outnumbered;  // Local change
         creators["cc target"] = &ValueContext::cc_target;
         creators["current cc target"] = &ValueContext::current_cc_target;
         creators["pet target"] = &ValueContext::pet_target;
@@ -472,6 +473,7 @@ private:
     static UntypedValue* dps_aoe_target(PlayerbotAI* botAI) { return new DpsAoeTargetValue(botAI); }
     static UntypedValue* least_hp_target(PlayerbotAI* botAI) { return new LeastHpTargetValue(botAI); }
     static UntypedValue* enemy_player_target(PlayerbotAI* botAI) { return new EnemyPlayerValue(botAI); }
+    static UntypedValue* bg_outnumbered(PlayerbotAI* botAI) { return new BgOutnumberedValue(botAI); }  // Local change
     static UntypedValue* cc_target(PlayerbotAI* botAI) { return new CcTargetValue(botAI); }
     static UntypedValue* current_cc_target(PlayerbotAI* botAI) { return new CurrentCcTargetValue(botAI); }
     static UntypedValue* pet_target(PlayerbotAI* botAI) { return new PetTargetValue(botAI); }

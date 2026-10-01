@@ -130,6 +130,17 @@ Unit* TankTargetValue::Calculate()
         }
     }
 
+    // Local change: in battlegrounds and arenas, peel enemy players off friendly healers first
+    if (sPlayerbotAIConfig.battlegroundCombatTactics && bot->InBattleground())
+    {
+        for (ObjectGuid const guid : AI_VALUE(GuidVector, "attackers"))
+        {
+            Unit* attacker = botAI->GetUnit(guid);
+            if (attacker && attacker->IsAlive() && IsAttackingHealer(attacker, bot))
+                return attacker;
+        }
+    }
+
     // FindTargetForTankStrategy strategy(botAI);
     FindTankTargetSmartStrategy strategy(botAI);
     return FindTarget(&strategy);

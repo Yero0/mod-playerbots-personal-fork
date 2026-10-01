@@ -15,6 +15,9 @@
 
 bool EnemyPlayerNear::IsActive() { return AI_VALUE(Unit*, "enemy player target"); }
 
+// Local change
+bool BgOutnumberedTrigger::IsActive() { return AI_VALUE(bool, "bg outnumbered"); }
+
 bool PlayerHasNoFlag::IsActive()
 {
     if (botAI->GetBot()->InBattleground())

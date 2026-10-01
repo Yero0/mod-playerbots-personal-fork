@@ -139,7 +139,26 @@ bool FindTargetStrategy::IsHighPriority(Unit* attacker)
             return true;
         }
     }
+
+    // Local change: in battlegrounds and arenas, enemy healers nearby come first
+    Player* bot = botAI->GetBot();
+    if (sPlayerbotAIConfig.battlegroundCombatTactics && bot->InBattleground() && attacker->IsPlayer() &&
+        bot->IsWithinDist(attacker, TargetValue::BG_ROLE_RANGE) && PlayerbotAI::IsHeal(attacker->ToPlayer()))
+        return true;
+
     return false;
+}
+
+// Local change
+bool TargetValue::IsAttackingHealer(Unit* unit, Player* bot)
+{
+    if (!unit || !unit->IsPlayer())
+        return false;
+
+    Unit* victim = unit->GetVictim();
+    Player* healer = victim ? victim->ToPlayer() : nullptr;
+    return healer && healer != bot && healer->IsAlive() && healer->IsFriendlyTo(bot) &&
+           bot->IsWithinDist(healer, BG_ROLE_RANGE) && PlayerbotAI::IsHeal(healer);
 }
 
 WorldPosition LastLongMoveValue::Calculate()

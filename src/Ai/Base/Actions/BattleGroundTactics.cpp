@@ -21,6 +21,7 @@
 #include "BattlegroundRV.h"
 #include "BattlegroundSA.h"
 #include "BattlegroundWS.h"
+#include "EnemyPlayerValue.h"  // Local change
 #include "Event.h"
 #include "GameObject.h"
 #include "IVMapMgr.h"
@@ -29,6 +30,7 @@
 #include "PositionValue.h"
 #include "PvpTriggers.h"
 #include "ServerFacade.h"
+#include "TargetValue.h"  // Local change
 #include "Vehicle.h"
 #include <algorithm>
 
@@ -4432,4 +4434,66 @@ bool ArenaTactics::moveToCenter(Battleground* bg)
     }
 
     return true;
+}
+
+// Local change
+bool BgRegroupAction::isUseful()
+{
+    // flag carriers keep to their objective
+    if (bot->HasAura(BG_WS_SPELL_WARSONG_FLAG) || bot->HasAura(BG_WS_SPELL_SILVERWING_FLAG) ||
+        bot->HasAura(BG_EY_NETHERSTORM_FLAG_SPELL))
+        return false;
+
+    Position leashCenter;
+    return !bot->GetVehicle() && !BGTactics::GetWsgDefenderLeash(bot, leashCenter);
+}
+
+// Local change
+bool BgRegroupAction::Execute(Event /*event*/)
+{
+    // direction of the enemies, so the bot doesn't run through them
+    float enemyX = 0.0f;
+    float enemyY = 0.0f;
+    uint32 enemies = 0;
+    for (ObjectGuid const guid : AI_VALUE(GuidVector, "nearest enemy players"))
+    {
+        Unit* unit = botAI->GetUnit(guid);
+        if (unit && unit->IsAlive() && bot->IsWithinDist(unit, BgOutnumberedValue::BG_OUTNUMBERED_EXIT_RANGE))
+        {
+            enemyX += unit->GetPositionX();
+            enemyY += unit->GetPositionY();
+            ++enemies;
+        }
+    }
+
+    if (!enemies)
+        return false;
+
+    float const enemyAngle = bot->GetAngle(enemyX / enemies, enemyY / enemies);
+
+    // nearest living ally beyond BG_ROLE_RANGE and not behind the enemies
+    Unit* ally = nullptr;
+    float allyDistance = 0.0f;
+    for (ObjectGuid const guid : AI_VALUE(GuidVector, "nearest friendly players"))
+    {
+        Unit* unit = botAI->GetUnit(guid);
+        if (!unit || !unit->IsPlayer() || !unit->IsAlive())
+            continue;
+
+        float const distance = bot->GetDistance(unit);
+        if (distance <= TargetValue::BG_ROLE_RANGE || (ally && distance >= allyDistance))
+            continue;
+
+        float const angleDiff = Position::NormalizeOrientation(bot->GetAngle(unit) - enemyAngle);
+        if (angleDiff < BG_REGROUP_MIN_ANGLE || angleDiff > 2.0f * static_cast<float>(M_PI) - BG_REGROUP_MIN_ANGLE)
+            continue;
+
+        ally = unit;
+        allyDistance = distance;
+    }
+
+    if (!ally)
+        return false;
+
+    return MoveTo(ally, sPlayerbotAIConfig.followDistance, MovementPriority::MOVEMENT_COMBAT);
 }

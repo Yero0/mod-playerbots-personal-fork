@@ -29,6 +29,17 @@ public:
     std::string const getName() override { return "Battleground"; }
 };
 
+// Local change: outnumbered bots fall back to allies (AiPlayerbot.BattlegroundCombatTactics)
+class BgRegroupStrategy : public Strategy
+{
+public:
+    BgRegroupStrategy(PlayerbotAI* botAI) : Strategy(botAI) {}
+
+    uint32 GetType() const override { return STRATEGY_TYPE_GENERIC; }
+    void InitTriggers(std::vector<TriggerNode*>& triggers) override;
+    std::string const getName() override { return "bg regroup"; }
+};
+
 class WarsongStrategy : public Strategy
 {
 public:

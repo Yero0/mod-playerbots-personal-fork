@@ -40,4 +40,21 @@ private:
     float GetMaxAttackDistance();
 };
 
+// Local change: battleground (not arena) bot facing at least BG_OUTNUMBERED_MARGIN more enemy players
+// than allies within TargetValue::BG_ROLE_RANGE (AiPlayerbot.BattlegroundCombatTactics). Once outnumbered,
+// enemies count up to BG_OUTNUMBERED_EXIT_RANGE, so chasers falling a few yards behind don't end it.
+class BgOutnumberedValue : public BoolCalculatedValue
+{
+public:
+    BgOutnumberedValue(PlayerbotAI* botAI) : BoolCalculatedValue(botAI, "bg outnumbered", 2) {}
+
+    bool Calculate() override;
+
+    static constexpr uint32 BG_OUTNUMBERED_MARGIN = 2;
+    static constexpr float BG_OUTNUMBERED_EXIT_RANGE = 45.0f;
+
+private:
+    bool _outnumbered = false;
+};
+
 #endif

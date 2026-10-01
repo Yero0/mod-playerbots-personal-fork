@@ -152,4 +152,18 @@ private:
     bool moveToCenter(Battleground* bg);
 };
 
+// Local change: an outnumbered bot ("bg outnumbered") falls back to the nearest ally outside the fight
+class BgRegroupAction : public MovementAction
+{
+public:
+    BgRegroupAction(PlayerbotAI* botAI) : MovementAction(botAI, "bg regroup") {}
+
+    bool Execute(Event event) override;
+    bool isUseful() override;
+
+private:
+    // allies within this angle of the enemies' direction are behind them
+    static constexpr float BG_REGROUP_MIN_ANGLE = 1.0472f;  // 60 degrees
+};
+
 #endif
