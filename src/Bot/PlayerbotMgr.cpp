@@ -360,9 +360,6 @@ void PlayerbotHolder::LogoutPlayerBot(ObjectGuid guid)
         PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(cleanupOp));
 
         LOG_DEBUG("playerbots", "Bot {} logging out", bot->GetName().c_str());
-        // Local change: diagnosis of bots leaving LFG groups when the dungeon completes; drop once found
-        if (bot->GetGroup())
-            LOG_INFO("playerbots", "[LeaveDiag] {} logs out while grouped", bot->GetName());
 
         // Remove taxi cheat flag on alts.
         if (!sRandomPlayerbotMgr.IsRandomBot(bot) && bot->isTaxiCheater())

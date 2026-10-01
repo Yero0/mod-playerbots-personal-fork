@@ -6,7 +6,6 @@
 
 #include "LeaveGroupAction.h"
 #include "Event.h"
-#include "LFGMgr.h"  // Local change
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
@@ -87,16 +86,6 @@ bool LeaveGroupAction::Leave()
         return false;
 
     Player* master = botAI -> GetMaster();
-    // Local change: diagnosis of bots leaving LFG groups when the dungeon completes; drop once found
-    if (Group const* group = bot->GetGroup())
-    {
-        Player* leader = botAI->GetGroupLeader();
-        LOG_INFO("playerbots",
-                 "[LeaveDiag] {} leaves group via '{}' (lfg group: {}, lfg state: {}, master: {}, leader: {})",
-                 bot->GetName(), getName(), group->isLFGGroup(), uint32(sLFGMgr->GetState(group->GetGUID())),
-                 master ? master->GetName() : "none", leader ? leader->GetName() : "none");
-    }
-
     if (master)
         botAI->TellMaster(
             PlayerbotTextMgr::instance().GetBotTextOrDefault("goodbye", "Goodbye!", {}),
