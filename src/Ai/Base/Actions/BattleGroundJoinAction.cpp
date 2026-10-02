@@ -292,7 +292,9 @@ bool BGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battlegroun
     uint32 bgAlliancePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAlliancePlayerCount;
     uint32 bgHordeBotCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordeBotCount;
     uint32 bgHordePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordePlayerCount;
-    uint32 demandedSlots = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].DemandedBgSlotsPerTeam(TeamSize);
+    // Local change: per team
+    uint32 demandedSlots =
+        sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].DemandedBgSlotsPerTeam(TeamSize, teamId);
 
     if (teamId == TEAM_ALLIANCE)
     {
@@ -622,7 +624,9 @@ bool FreeBGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battleg
     uint32 bgAlliancePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAlliancePlayerCount;
     uint32 bgHordeBotCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordeBotCount;
     uint32 bgHordePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordePlayerCount;
-    uint32 demandedSlots = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].DemandedBgSlotsPerTeam(TeamSize);
+    // Local change: per team
+    uint32 demandedSlots =
+        sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].DemandedBgSlotsPerTeam(TeamSize, teamId);
 
     if (teamId == TEAM_ALLIANCE)
     {

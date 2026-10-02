@@ -8,6 +8,7 @@
 #define PLAYERBOTS_RANDOMPLAYERBOTMGR_H
 
 #include <algorithm>
+#include <array>  // Local change
 
 #include "GameTime.h"
 #include "NewRpgInfo.h"
@@ -50,9 +51,12 @@ struct BattlegroundInfo
     std::vector<uint32> bgPlayerInstances;
     std::map<uint32, uint32> bgInstanceCapacity;  // instance id -> max players per team
     uint32 bgAutoJoinTarget = 0;
+    std::map<uint32, std::array<uint32, 2>> bgInstanceBots;  // Local change: instance id -> bots inside per TeamId
 
     // Per-team slots to fill: open player queue + player instances + bot-only instances up to the auto-join target
-    uint32 DemandedBgSlotsPerTeam(uint32 queueTeamSize) const
+    // Local change: bots in bot-only instances beyond the target count for their own instance only, so they don't
+    // use up the slots a player instance still needs
+    uint32 DemandedBgSlotsPerTeam(uint32 queueTeamSize, TeamId team) const
     {
         uint32 slots = activeBgQueue * queueTeamSize;
         uint32 botOnlyCounted = 0;
@@ -67,6 +71,8 @@ struct BattlegroundInfo
                 slots += capacity;
                 ++botOnlyCounted;
             }
+            else if (auto bots = bgInstanceBots.find(instanceId); bots != bgInstanceBots.end())  // Local change
+                slots += bots->second[team];
         }
         return slots;
     }

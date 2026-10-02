@@ -1133,6 +1133,7 @@ void RandomPlayerbotMgr::CheckBgQueue()
                     instanceIds = &BattlegroundData[queueTypeId][bracketId].bgInstances;
                     BattlegroundData[queueTypeId][bracketId].bgInstanceCapacity[instanceId] =
                         bot->GetBattleground()->GetMaxPlayersPerTeam();
+                    ++BattlegroundData[queueTypeId][bracketId].bgInstanceBots[instanceId][teamId];  // Local change
                 }
 
                 if (instanceIds &&
@@ -1210,6 +1211,32 @@ void RandomPlayerbotMgr::CheckBgQueue()
         updateBGInstanceCount(BATTLEGROUND_QUEUE_AV, avBrackets, randomBotAutoJoinBGAVCount);
         updateBGInstanceCount(BATTLEGROUND_QUEUE_AB, abBrackets, randomBotAutoJoinBGABCount);
         updateBGInstanceCount(BATTLEGROUND_QUEUE_WS, wsBrackets, randomBotAutoJoinBGWSCount);
+    }
+
+    // Local change: the core fills running battlegrounds from the queue only on queue events, and with
+    // Battleground.InvitationType 1/2 about one player per side per run; once bots stop joining, a real
+    // player's match stalls short of full with bots still queued. Re-run the fill for those brackets.
+    for (auto const& [queueType, brackets] : BattlegroundData)
+    {
+        BattlegroundQueueTypeId const queueTypeId = BattlegroundQueueTypeId(queueType);
+        if (BattlegroundMgr::BGArenaType(queueTypeId))
+            continue;
+
+        for (auto const& [bracket, info] : brackets)
+        {
+            if (info.bgPlayerInstances.empty())
+                continue;
+
+            // Local change: with InvitationType 1/2 the core can see 0 free slots on both sides while invited players are
+            // still on their way in, and then drops the match from its free-slot list until someone leaves; put it back
+            BattlegroundTypeId const bgTypeId = BattlegroundMgr::BGTemplateId(queueTypeId);
+            for (uint32 const instanceId : info.bgPlayerInstances)
+                if (Battleground* bg = sBattlegroundMgr->GetBattleground(instanceId, bgTypeId))
+                    if (bg->HasFreeSlots())
+                        bg->AddToBGFreeSlotQueue();
+
+            sBattlegroundMgr->ScheduleQueueUpdate(0, 0, queueTypeId, bgTypeId, BattlegroundBracketId(bracket));
+        }
     }
 
     LogBattlegroundInfo();
