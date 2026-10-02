@@ -798,6 +798,18 @@ AiPlayerbot.EnableRandomBotTrading = 1
 # Default: 0 (disabled)
 AiPlayerbot.RandomBotCraftForPlayers = 0
 
+# Local change: random bots in a guild led by a real player deposit this percentage of their gold into
+# the guild bank once per RandomBotGuildTaxInterval (seconds, minimum 3600). Bot guilds never pay.
+# Default: 0 (disabled), 86400 (one day)
+AiPlayerbot.RandomBotGuildTaxPercent = 0
+AiPlayerbot.RandomBotGuildTaxInterval = 86400
+
+# Local change: random bots in a guild led by a real player put their tradeable crafting materials
+# (cloth, leather, ore/stone/bars, meat, herbs, elementals, enchanting, gems, other materials) into this
+# guild bank tab, checked every few minutes. The bots' guild rank needs "Deposit items" on that tab.
+# Default: 0 (disabled); 1-6 = guild bank tab number
+AiPlayerbot.RandomBotGuildDepositMaterialsTab = 0
+
 # Random bots automatically buy useful items and sell junk at vendors via the
 # NewRpg strategy (no toggle). Manual 'b vendor'/'s vendor' commands are
 # unaffected for all bots.

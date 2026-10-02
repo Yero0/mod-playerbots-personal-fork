@@ -21,6 +21,8 @@
 #include "FleeManager.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
+#include "Guild.h"     // Local change
+#include "GuildMgr.h"  // Local change
 #include "LFGMgr.h"
 #include "MapMgr.h"
 #include "NewRpgInfo.h"
@@ -31,6 +33,7 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
+#include "PlayerbotGuildMgr.h"  // Local change
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 #include "Position.h"
@@ -1512,6 +1515,53 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
         }
 
         return false;
+    }
+
+    // Local change: opt-in guild tax; bots in a guild led by a real player pay a share of their gold
+    if (sPlayerbotAIConfig.randomBotGuildTaxPercent && PlayerbotGuildMgr::instance().IsRealGuild(bot) &&
+        !GetEventValue(botId, "guild tax"))
+    {
+        uint32 const tax = uint64(bot->GetMoney()) * sPlayerbotAIConfig.randomBotGuildTaxPercent / 100;
+        Guild* guild = tax ? sGuildMgr->GetGuildById(bot->GetGuildId()) : nullptr;
+        if (guild)
+            guild->HandleMemberDepositMoney(bot->GetSession(), tax);
+
+        SetEventValue(botId, "guild tax", 1, sPlayerbotAIConfig.randomBotGuildTaxInterval);
+    }
+
+    // Local change: opt-in, same bots put tradeable crafting materials into the configured guild bank tab.
+    // The core checks the bot's rank deposit rights for that tab and the free space.
+    if (sPlayerbotAIConfig.randomBotGuildDepositMaterialsTab && PlayerbotGuildMgr::instance().IsRealGuild(bot))
+    {
+        uint8 const tab = sPlayerbotAIConfig.randomBotGuildDepositMaterialsTab - 1;
+        Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
+        if (guild && guild->MemberHasTabRights(bot->GetGUID(), tab, GUILD_BANK_RIGHT_DEPOSIT_ITEM))
+        {
+            for (Item* item : botAI->GetInventoryItems())
+            {
+                ItemTemplate const* proto = item->GetTemplate();
+                if (proto->Class != ITEM_CLASS_TRADE_GOODS || !item->CanBeTraded() || proto->Duration > 0)
+                    continue;
+
+                switch (proto->SubClass)
+                {
+                    case ITEM_SUBCLASS_JEWELCRAFTING:
+                    case ITEM_SUBCLASS_CLOTH:
+                    case ITEM_SUBCLASS_LEATHER:
+                    case ITEM_SUBCLASS_METAL_STONE:
+                    case ITEM_SUBCLASS_MEAT:
+                    case ITEM_SUBCLASS_HERB:
+                    case ITEM_SUBCLASS_ELEMENTAL:
+                    case ITEM_SUBCLASS_ENCHANTING:
+                    case ITEM_SUBCLASS_MATERIAL:
+                        guild->SwapItemsWithInventory(bot, false, tab, NULL_SLOT, item->GetBagSlot(), item->GetSlot(),
+                                                      0);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
     }
 
     // leave group if leader is rndbot

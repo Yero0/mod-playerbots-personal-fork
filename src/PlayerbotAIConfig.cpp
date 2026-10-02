@@ -702,6 +702,12 @@ bool PlayerbotAIConfig::Initialize()
     enableRandomBotTrading = sConfigMgr->GetOption<int32>("AiPlayerbot.EnableRandomBotTrading", 1);
     // Local change
     randomBotCraftForPlayers = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotCraftForPlayers", false);
+    // Local change
+    randomBotGuildTaxPercent = std::min(sConfigMgr->GetOption<uint32>("AiPlayerbot.RandomBotGuildTaxPercent", 0), 100u);
+    randomBotGuildTaxInterval =
+        std::max(sConfigMgr->GetOption<uint32>("AiPlayerbot.RandomBotGuildTaxInterval", DAY), uint32(HOUR));
+    randomBotGuildDepositMaterialsTab =
+        std::min(sConfigMgr->GetOption<uint32>("AiPlayerbot.RandomBotGuildDepositMaterialsTab", 0), 6u);
     enableAltBotAutoBuy = sConfigMgr->GetOption<bool>("AiPlayerbot.EnableAltBotAutoBuy", false);
     altBotAutoSellLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.EnableAltBotAutoSell", 0);
     periodicOnlineOfflineRatio = sConfigMgr->GetOption<float>("AiPlayerbot.PeriodicOnlineOfflineRatio", 2.0);
