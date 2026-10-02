@@ -1227,8 +1227,9 @@ void RandomPlayerbotMgr::CheckBgQueue()
             if (info.bgPlayerInstances.empty())
                 continue;
 
-            // Local change: with InvitationType 1/2 the core can see 0 free slots on both sides while invited players are
-            // still on their way in, and then drops the match from its free-slot list until someone leaves; put it back
+            // Local change: with InvitationType 1/2 the core can see 0 free slots on both sides while invited
+            // players are still on their way in, and then drops the match from its free-slot list until someone
+            // leaves; put it back
             BattlegroundTypeId const bgTypeId = BattlegroundMgr::BGTemplateId(queueTypeId);
             for (uint32 const instanceId : info.bgPlayerInstances)
                 if (Battleground* bg = sBattlegroundMgr->GetBattleground(instanceId, bgTypeId))
