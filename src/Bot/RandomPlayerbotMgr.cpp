@@ -397,6 +397,11 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
             sRandomPlayerbotMgr.CheckLfgQueue();
     }
 
+    // Local change
+    if ((sPlayerbotAIConfig.randomBotGuildTaxPercent || sPlayerbotAIConfig.randomBotGuildDepositMaterialsTab) &&
+        time(nullptr) > GuildCheckTimer + MINUTE)
+        CheckGuildContributions();
+
     if (sPlayerbotAIConfig.randomBotAutologin && sPlayerbotAIConfig.randomBotPrintStatsInterval &&
         time(nullptr) > (printStatsTimer + sPlayerbotAIConfig.randomBotPrintStatsInterval))
     {
@@ -1287,6 +1292,68 @@ void RandomPlayerbotMgr::LogBattlegroundInfo()
     LOG_DEBUG("playerbots", "BG Queue check finished");
 }
 
+// Local change: opt-in guild tax and material deposits for bots in a guild led by a real player. World thread;
+// a sweep of its own because ProcessBot reaches only part of the bots when many are due.
+void RandomPlayerbotMgr::CheckGuildContributions()
+{
+    GuildCheckTimer = time(nullptr);
+
+    for (auto const& [guid, bot] : playerBots)
+    {
+        PlayerbotAI* botAI = bot ? GET_PLAYERBOT_AI(bot) : nullptr;
+        if (!botAI || !bot->IsInWorld() || !bot->IsAlive() || bot->GetGroup() || bot->InBattleground() ||
+            bot->GetTradeData() || !IsRandomBot(bot) || !PlayerbotGuildMgr::instance().IsRealGuild(bot))
+            continue;
+
+        Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
+        if (!guild)
+            continue;
+
+        uint32 const botId = bot->GetGUID().GetCounter();
+        if (sPlayerbotAIConfig.randomBotGuildTaxPercent && !GetEventValue(botId, "guild tax"))
+        {
+            uint32 const tax = uint64(bot->GetMoney()) * sPlayerbotAIConfig.randomBotGuildTaxPercent / 100;
+            if (tax)
+                guild->HandleMemberDepositMoney(bot->GetSession(), tax);
+
+            uint32 const interval = sPlayerbotAIConfig.randomBotGuildTaxInterval;
+            SetEventValue(botId, "guild tax", 1, interval + urand(0, interval / 10));  // spread the payments
+        }
+
+        // The core also checks the free space; a full tab sends the bot an error and moves nothing
+        if (!sPlayerbotAIConfig.randomBotGuildDepositMaterialsTab)
+            continue;
+
+        uint8 const tab = sPlayerbotAIConfig.randomBotGuildDepositMaterialsTab - 1;
+        if (!guild->MemberHasTabRights(bot->GetGUID(), tab, GUILD_BANK_RIGHT_DEPOSIT_ITEM))
+            continue;
+
+        for (Item* item : botAI->GetInventoryItems())
+        {
+            ItemTemplate const* proto = item->GetTemplate();
+            if (proto->Class != ITEM_CLASS_TRADE_GOODS || !item->CanBeTraded() || proto->Duration > 0)
+                continue;
+
+            switch (proto->SubClass)
+            {
+                case ITEM_SUBCLASS_JEWELCRAFTING:
+                case ITEM_SUBCLASS_CLOTH:
+                case ITEM_SUBCLASS_LEATHER:
+                case ITEM_SUBCLASS_METAL_STONE:
+                case ITEM_SUBCLASS_MEAT:
+                case ITEM_SUBCLASS_HERB:
+                case ITEM_SUBCLASS_ELEMENTAL:
+                case ITEM_SUBCLASS_ENCHANTING:
+                case ITEM_SUBCLASS_MATERIAL:
+                    guild->SwapItemsWithInventory(bot, false, tab, NULL_SLOT, item->GetBagSlot(), item->GetSlot(), 0);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
 void RandomPlayerbotMgr::CheckLfgQueue()
 {
     if (!LfgCheckTimer || time(nullptr) > (LfgCheckTimer + 30))
@@ -1515,53 +1582,6 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
         }
 
         return false;
-    }
-
-    // Local change: opt-in guild tax; bots in a guild led by a real player pay a share of their gold
-    if (sPlayerbotAIConfig.randomBotGuildTaxPercent && PlayerbotGuildMgr::instance().IsRealGuild(bot) &&
-        !GetEventValue(botId, "guild tax"))
-    {
-        uint32 const tax = uint64(bot->GetMoney()) * sPlayerbotAIConfig.randomBotGuildTaxPercent / 100;
-        Guild* guild = tax ? sGuildMgr->GetGuildById(bot->GetGuildId()) : nullptr;
-        if (guild)
-            guild->HandleMemberDepositMoney(bot->GetSession(), tax);
-
-        SetEventValue(botId, "guild tax", 1, sPlayerbotAIConfig.randomBotGuildTaxInterval);
-    }
-
-    // Local change: opt-in, same bots put tradeable crafting materials into the configured guild bank tab.
-    // The core checks the bot's rank deposit rights for that tab and the free space.
-    if (sPlayerbotAIConfig.randomBotGuildDepositMaterialsTab && PlayerbotGuildMgr::instance().IsRealGuild(bot))
-    {
-        uint8 const tab = sPlayerbotAIConfig.randomBotGuildDepositMaterialsTab - 1;
-        Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
-        if (guild && guild->MemberHasTabRights(bot->GetGUID(), tab, GUILD_BANK_RIGHT_DEPOSIT_ITEM))
-        {
-            for (Item* item : botAI->GetInventoryItems())
-            {
-                ItemTemplate const* proto = item->GetTemplate();
-                if (proto->Class != ITEM_CLASS_TRADE_GOODS || !item->CanBeTraded() || proto->Duration > 0)
-                    continue;
-
-                switch (proto->SubClass)
-                {
-                    case ITEM_SUBCLASS_JEWELCRAFTING:
-                    case ITEM_SUBCLASS_CLOTH:
-                    case ITEM_SUBCLASS_LEATHER:
-                    case ITEM_SUBCLASS_METAL_STONE:
-                    case ITEM_SUBCLASS_MEAT:
-                    case ITEM_SUBCLASS_HERB:
-                    case ITEM_SUBCLASS_ELEMENTAL:
-                    case ITEM_SUBCLASS_ENCHANTING:
-                    case ITEM_SUBCLASS_MATERIAL:
-                        guild->SwapItemsWithInventory(bot, false, tab, NULL_SLOT, item->GetBagSlot(), item->GetSlot(),
-                                                      0);
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
     }
 
     // leave group if leader is rndbot

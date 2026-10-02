@@ -181,6 +181,7 @@ public:
     std::map<TeamId, std::vector<uint32>> LfgDungeons;
     void CheckBgQueue();
     void CheckLfgQueue();
+    void CheckGuildContributions();  // Local change
     void CheckPlayers();
     void LogBattlegroundInfo();
 
@@ -260,6 +261,7 @@ private:
     time_t LfgCheckTimer;
     time_t PlayersCheckTimer;
     time_t RealPlayerLastTimeSeen = 0;
+    time_t GuildCheckTimer = 0;  // Local change
     time_t DelayLoginBotsTimer;
     time_t printStatsTimer;
     uint32 AddRandomBots();
