@@ -11,7 +11,7 @@
   https://github.com/Yero0/mod-playerbots-personal-fork (branch `master`). Improve bots directly in `src/`;
   still mark every change `// Local change` (it makes upstream merges easy). Commit or push only when asked.
 - Record every change, and every upstream PR applied, in
-  `.claude/handoff/playerbots-fork-handoff-2026-09-26.md` §3 (local only, gitignored).
+  `.claude/handoff/playerbots-fork-handoff-2026-10-03.md` §3 (local only, gitignored).
 - Never build and never run `../AzerothCore/Compile-AzerothCore-Playerbots.ps1`; the user copies files
   to the server and rebuilds manually.
 - Nothing can be compiled here: review every C++ change with the `code-reviewer` agent before handing it
