@@ -1603,7 +1603,10 @@ bool TravelTarget::isActive()
     return true;
 };
 
-uint32 TravelTarget::getMaxTravelTime() { return (1000.0 * distance(bot)) / bot->GetSpeed(MOVE_RUN); }
+uint32 TravelTarget::getMaxTravelTime()
+{
+    return (IN_MILLISECONDS * distance(bot)) / bot->GetSpeed(MOVE_RUN);
+}
 
 bool TravelTarget::isTraveling()
 {
@@ -2033,7 +2036,7 @@ void TravelMgr::LoadQuestTravelTable()
                     {
                         loc = new QuestRelationTravelDestination(
                             questId, entry, 0, sPlayerbotAIConfig.tooCloseDistance, sPlayerbotAIConfig.sightDistance);
-                        loc->setExpireDelay(5 * 60 * 1000);
+                        loc->setExpireDelay(5 * MINUTE * IN_MILLISECONDS);
                         loc->setMaxVisitors(15, 0);
                         container->questGivers.push_back(loc);
                         locs.push_back(loc);
@@ -2042,7 +2045,7 @@ void TravelMgr::LoadQuestTravelTable()
                     {
                         loc = new QuestRelationTravelDestination(
                             questId, entry, 1, sPlayerbotAIConfig.tooCloseDistance, sPlayerbotAIConfig.sightDistance);
-                        loc->setExpireDelay(5 * 60 * 1000);
+                        loc->setExpireDelay(5 * MINUTE * IN_MILLISECONDS);
                         loc->setMaxVisitors(15, 0);
                         container->questTakers.push_back(loc);
                         locs.push_back(loc);
@@ -2062,7 +2065,7 @@ void TravelMgr::LoadQuestTravelTable()
                         loc = new QuestObjectiveTravelDestination(questId, entry, objective,
                                                                   sPlayerbotAIConfig.tooCloseDistance,
                                                                   sPlayerbotAIConfig.sightDistance);
-                        loc->setExpireDelay(1 * 60 * 1000);
+                        loc->setExpireDelay(MINUTE * IN_MILLISECONDS);
                         loc->setMaxVisitors(100, 1);
                         container->questObjectives.push_back(loc);
                         locs.push_back(loc);
@@ -2111,7 +2114,7 @@ void TravelMgr::LoadQuestTravelTable()
                 int32 entry = r.type == 0 ? r.entry : r.entry * -1;
 
                 loc = new QuestRelationTravelDestination(r.questId, entry, r.role, sPlayerbotAIConfig.tooCloseDistance,
-    sPlayerbotAIConfig.sightDistance); loc->setExpireDelay(5 * 60 * 1000); loc->setMaxVisitors(15, 0);
+    sPlayerbotAIConfig.sightDistance); loc->setExpireDelay(5 * 60 * IN_MILLISECONDS); loc->setMaxVisitors(15, 0);
 
                 for (auto& u : units)
                 {
@@ -2149,7 +2152,7 @@ void TravelMgr::LoadQuestTravelTable()
                 uint32 reqEntry = quest->RequiredNpcOrGo[i];
 
                 loc = new QuestObjectiveTravelDestination(questId, reqEntry, i, sPlayerbotAIConfig.tooCloseDistance,
-    sPlayerbotAIConfig.sightDistance); loc->setExpireDelay(1 * 60 * 1000); loc->setMaxVisitors(100, 1);
+    sPlayerbotAIConfig.sightDistance); loc->setExpireDelay(1 * 60 * IN_MILLISECONDS); loc->setMaxVisitors(100, 1);
 
                 for (auto& u : units)
                 {
@@ -2199,8 +2202,11 @@ void TravelMgr::LoadQuestTravelTable()
 
                     int32 entry = l.type == 0 ? l.entry : l.entry * -1;
 
-                    loc = new QuestObjectiveTravelDestination(questId, entry, i, sPlayerbotAIConfig.tooCloseDistance,
-    sPlayerbotAIConfig.sightDistance, l.item); loc->setExpireDelay(1 * 60 * 1000); loc->setMaxVisitors(100, 1);
+                    loc = new QuestObjectiveTravelDestination(
+                        questId, entry, i, sPlayerbotAIConfig.tooCloseDistance,
+                        sPlayerbotAIConfig.sightDistance, l.item);
+                    loc->setExpireDelay(1 * 60 * IN_MILLISECONDS);
+                    loc->setMaxVisitors(100, 1);
 
                     for (auto& u : units)
                     {
@@ -2290,7 +2296,7 @@ void TravelMgr::LoadQuestTravelTable()
             {
                 rLoc = new RpgTravelDestination(u.entry, sPlayerbotAIConfig.tooCloseDistance,
                                                 sPlayerbotAIConfig.sightDistance);
-                rLoc->setExpireDelay(5 * 60 * 1000);
+                rLoc->setExpireDelay(5 * MINUTE * IN_MILLISECONDS);
                 rLoc->setMaxVisitors(15, 0);
 
                 rLoc->addPoint(&point);
@@ -2303,7 +2309,7 @@ void TravelMgr::LoadQuestTravelTable()
         {
             gLoc = new GrindTravelDestination(u.entry, sPlayerbotAIConfig.tooCloseDistance,
                                               sPlayerbotAIConfig.sightDistance);
-            gLoc->setExpireDelay(5 * 60 * 1000);
+            gLoc->setExpireDelay(5 * MINUTE * IN_MILLISECONDS);
             gLoc->setMaxVisitors(100, 0);
 
             point = WorldPosition(u.map, u.x, u.y, u.z, u.o);
@@ -2317,7 +2323,7 @@ void TravelMgr::LoadQuestTravelTable()
 
             bLoc = new BossTravelDestination(u.entry, sPlayerbotAIConfig.tooCloseDistance,
                                              sPlayerbotAIConfig.sightDistance);
-            bLoc->setExpireDelay(5 * 60 * 1000);
+            bLoc->setExpireDelay(5 * MINUTE * IN_MILLISECONDS);
             bLoc->setMaxVisitors(0, 0);
 
             bLoc->addPoint(&point);
@@ -3392,7 +3398,7 @@ void TravelMgr::LoadQuestTravelTable()
 
             WorldSession* session =
                 new WorldSession(accountId, "", 0x0, nullptr, SEC_PLAYER, EXPANSION_WRATH_OF_THE_LICH_KING, time_t(0),
-                                 LOCALE_enUS, 0, false, false, 0, true);
+                                 LOCALE_enUS, 0, false, false, 0);
 
             std::vector<std::pair<std::pair<uint32, uint32>, uint32>> classSpecLevel;
 

@@ -17,7 +17,7 @@
 
 bool ReviveFromCorpseAction::Execute(Event event)
 {
-    // Local change: upstream PR #2834; BG revives go through the BG spirit healer, not a world graveyard
+    // BG ghosts are revived by spirit healer waves; teleporting to a world graveyard removes them from the BG.
     if (bot->InBattleground())
         return false;
 
@@ -297,7 +297,7 @@ GraveyardStruct const* SpiritHealerAction::GetGrave(bool startZone)
 
 bool SpiritHealerAction::Execute(Event /*event*/)
 {
-    // Local change: upstream PR #2834
+    // GetGrave() picks world graveyards; teleporting there from a BG removes the bot from it.
     if (bot->InBattleground())
         return false;
 
