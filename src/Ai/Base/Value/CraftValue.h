@@ -12,6 +12,7 @@
 #include <ctime>  // Local change
 #include <map>
 #include <string>  // Local change
+#include <vector>  // Local change
 
 class PlayerbotAI;
 
@@ -35,6 +36,22 @@ public:
     std::string pendingOrder;
     time_t pendingOrderTime{0};
     ObjectGuid pendingOrderTrader;
+    // Local change: shop menu (gossip) session with one real player, see BotShopAction
+    struct ShopLine
+    {
+        uint32 itemId{0};
+        uint32 amount{0};  // items
+        uint32 price{0};   // per item
+        bool crafted{false};
+    };
+    ObjectGuid shopCustomer;
+    time_t shopExpire{0};
+    std::vector<ShopLine> shopCart;
+    uint32 shopSkill{0};     // list shown: 0 = main menu, a profession skill, or BotShopAction::SHOP_FOR_SALE
+    uint32 shopCategory{0};  // 0 = the profession's categories
+    uint32 shopPage{0};
+    bool shopAllLevels{false};
+    bool shopCheckout{false};  // fill the next trade window with the cart
     bool IsAdvertised(uint32 item) const
     {
         auto const itr = advertised.find(item);

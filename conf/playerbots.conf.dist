@@ -794,6 +794,11 @@ AiPlayerbot.EnableRandomBotTrading = 1
 # max stack size, during the trade: the bot makes it, puts it in the trade window and accepts once your
 # gold covers the price. To buy from the bot's bags, whisper the item link, or '[item] 5' for an amount.
 # A bot keeps items it advertised in chat for 30 minutes instead of selling them to a vendor.
+# Opening a trade opens the bot's shop menu instead of the trade window (the chat orders above only
+# work while the bot serves another customer): its crafts (enchant scrolls included) and items for
+# sale, filtered to what you can use near your level. Pick items into a cart, then Checkout: the bot
+# opens a trade with up to 6 stacks and mails the rest cash on delivery. The bot stays put while you
+# shop (2 minutes idle or walking away ends it).
 # Needs EnableRandomBotTrading 1 or 3.
 # Default: 0 (disabled)
 AiPlayerbot.RandomBotCraftForPlayers = 0

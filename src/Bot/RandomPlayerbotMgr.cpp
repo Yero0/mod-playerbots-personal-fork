@@ -11,6 +11,7 @@
 #include "ArenaTeamMgr.h"
 #include "Battleground.h"
 #include "BattlegroundMgr.h"
+#include "BotShopAction.h"  // Local change
 #include "Cell.h"
 #include "CellImpl.h"
 #include "ChannelMgr.h"
@@ -1475,6 +1476,10 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
     uint32 isValid = GetEventValue(bot, "add");
     if (!isValid)
     {
+        // Local change: log out once the shop customer is done
+        if (botAI && BotShopAction::InSession(botAI))
+            return false;
+
         if (!player || !player->GetGroup())
         {
             if (player)
@@ -1612,6 +1617,10 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
         return false;
     }
 
+    // Local change: no randomize, refresh (empties the bags) or teleport while trading or a shop customer browses
+    if (bot->GetTrader() || BotShopAction::InSession(botAI))
+        return false;
+
     // leave group if leader is rndbot
     Group* group = bot->GetGroup();
     if (group && !group->isLFGGroup() && IsRandomBot(group->GetLeader()))
@@ -1715,6 +1724,10 @@ bool RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
 
     // no teleport / movement update when rooted.
     if (bot->IsRooted())
+        return false;
+
+    // Local change: stay with a trade partner or a shop customer
+    if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot); bot->GetTrader() || (botAI && BotShopAction::InSession(botAI)))
         return false;
 
     // ignore when in queue for battle grounds.

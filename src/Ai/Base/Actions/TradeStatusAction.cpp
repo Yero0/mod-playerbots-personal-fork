@@ -5,6 +5,7 @@
  */
 
 #include "TradeStatusAction.h"
+#include "BotShopAction.h"  // Local change
 #include "CraftValue.h"
 #include "Event.h"
 #include "GuildTaskMgr.h"
@@ -147,23 +148,42 @@ bool TradeStatusAction::Execute(Event event)
         if (!bot->HasInArc(CAST_ANGLE_IN_FRONT, trader, sPlayerbotAIConfig.sightDistance))
             bot->SetFacingToObject(trader);
 
-        BeginTrade();
-
-        // Local change: fill an order whispered before the window was open (at most 10 s old)
-        CraftData& craftData = AI_VALUE(CraftData&, "craft");
-        if (!craftData.pendingOrder.empty())
+        // Local change: the shop menu replaces the trade (the client hides its window without cancelling it,
+        // leaving the bot frozen in an open trade); checkout opens a trade of its own
+        if (BotShopAction(botAI).Open(trader))
         {
-            std::string const order = craftData.pendingOrder;
-            bool const fresh = time(nullptr) - craftData.pendingOrderTime <= 10 &&
-                               craftData.pendingOrderTrader == trader->GetGUID();
-            craftData.pendingOrder.clear();
-            if (fresh)
-                TradeAction(botAI).Execute(Event("trade", order));
+            CancelTrade();
+            return true;
         }
 
+        BeginTrade();
+        FillPendingOrder();  // Local change
+        return true;
+    }
+    // Local change: a trade the bot started only gets this status, once the other side accepts
+    else if (status == TRADE_STATUS_OPEN_WINDOW)
+    {
+        FillPendingOrder();
+        BotShopAction(botAI).FillTrade();
         return true;
     }
     return false;
+}
+
+// Local change: fill an order whispered before the window was open (at most 10 s old)
+void TradeStatusAction::FillPendingOrder()
+{
+    Player* trader = bot->GetTrader();
+    CraftData& craftData = AI_VALUE(CraftData&, "craft");
+    if (!trader || craftData.pendingOrder.empty())
+        return;
+
+    std::string const order = craftData.pendingOrder;
+    bool const fresh =
+        time(nullptr) - craftData.pendingOrderTime <= 10 && craftData.pendingOrderTrader == trader->GetGUID();
+    craftData.pendingOrder.clear();
+    if (fresh)
+        TradeAction(botAI).Execute(Event("trade", order));
 }
 
 void TradeStatusAction::BeginTrade()
@@ -195,6 +215,9 @@ void TradeStatusAction::BeginTrade()
             uint32 shown = 0;
             for (CraftableItem const& craftable : craftables)
             {
+                if (craftable.scroll)  // enchant scrolls are in the shop menu only
+                    continue;
+
                 if (craftable.skill != skill)
                 {
                     skill = craftable.skill;
@@ -312,7 +335,9 @@ bool TradeStatusAction::CheckTrade()
     for (uint32 slot = 0; slot < TRADE_SLOT_TRADED_COUNT; ++slot)
     {
         Item* item = bot->GetTradeData()->GetItem((TradeSlots)slot);
-        if (item && !item->GetTemplate()->SellPrice && !item->GetTemplate()->IsConjuredConsumable())
+        // Local change: items crafted on order carry their price (enchant scrolls have no sell price)
+        if (item && !item->GetTemplate()->SellPrice && !item->GetTemplate()->IsConjuredConsumable() &&
+            !AI_VALUE(CraftData&, "craft").prices.contains(item->GetEntry()))
         {
             std::ostringstream out;
             botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(

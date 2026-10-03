@@ -6,6 +6,7 @@
 
 #include "PlayerbotAI.h"
 #include "AiFactory.h"
+#include "BotShopAction.h"  // Local change
 #include "BudgetValues.h"
 #include "ChannelMgr.h"
 #include "CharacterPackets.h"
@@ -1413,6 +1414,34 @@ void PlayerbotAI::HandleBotOutgoingPacket(WorldPacket const& packet)
             if (guid != bot->GetGUID())
                 return;
             CheckMountStateAction::CompleteDismount(bot);
+            return;
+        }
+        // Local change: answer a trade at once, not after a long check delay (eating, a walk); a trade request
+        // also stops a non-combat cast, so a hearthstone does not take the bot away from the trade
+        case SMSG_TRADE_STATUS:
+        {
+            botOutgoingPacketHandlers.AddPacket(packet);
+            Player* trader = bot->GetTrader();
+            if (!trader || bot->IsInCombat() || IsSelfBot(bot))
+                return;
+
+            // only a trade the bot takes (TradeStatusAction): its master, a group member or a craft customer
+            if (trader != GetMaster() && (!bot->GetGroup() || !bot->GetGroup()->IsMember(trader->GetGUID())) &&
+                !(sPlayerbotAIConfig.randomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) &&
+                  IsRealPlayer(trader)))
+                return;
+
+            WorldPacket p(packet);
+            p.rpos(0);
+            uint32 status;
+            p >> status;
+            if (status != TRADE_STATUS_BEGIN_TRADE && status != TRADE_STATUS_OPEN_WINDOW)
+                return;
+
+            nextAICheckDelay = 0;
+            if (status == TRADE_STATUS_BEGIN_TRADE && bot->IsNonMeleeSpellCast(false))
+                spellInterruptRequested = true;
+
             return;
         }
         default:
@@ -6213,7 +6242,8 @@ bool PlayerbotAI::CanMove()
         return false;
 
     // Local change: stand still while a trade window is open (walking off cancels it); combat still moves
-    if (bot->GetTrader() && !bot->IsInCombat())
+    // Local change: and while a shop customer browses its menu
+    if (!bot->IsInCombat() && (bot->GetTrader() || BotShopAction::InSession(this)))
         return false;
 
     return true;

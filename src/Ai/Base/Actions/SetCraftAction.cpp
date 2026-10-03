@@ -54,12 +54,17 @@ std::vector<CraftableItem> SetCraftAction::GetCraftableItems(Player* bot)
 
         for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
         {
-            if (spellInfo->Effects[i].Effect != SPELL_EFFECT_CREATE_ITEM || !spellInfo->Effects[i].ItemType)
+            // an enchant names the scroll it makes on a vellum (Spell::EffectEnchantItemPerm)
+            bool const scroll = spellInfo->Effects[i].Effect == SPELL_EFFECT_ENCHANT_ITEM;
+            if ((spellInfo->Effects[i].Effect != SPELL_EFFECT_CREATE_ITEM && !scroll) ||
+                !spellInfo->Effects[i].ItemType)
                 continue;
 
-            // the trade refuses bound items and items without a sell price
+            // the trade refuses bound items and items without a sell price; scrolls have none but carry the order price
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(spellInfo->Effects[i].ItemType);
-            if (!proto || proto->Bonding == BIND_WHEN_PICKED_UP || !proto->SellPrice)
+            // a grey item makes TradeStatusAction::CalculateCost price the whole trade at 0
+            if (!proto || proto->Bonding == BIND_WHEN_PICKED_UP || (!proto->SellPrice && !scroll) ||
+                proto->Quality < ITEM_QUALITY_NORMAL)
                 continue;
 
             uint32 price = GetCraftFee(proto);
@@ -72,8 +77,8 @@ std::vector<CraftableItem> SetCraftAction::GetCraftableItems(Player* bot)
                     price += (reagent->BuyPrice ? reagent->BuyPrice : reagent->SellPrice) * spellInfo->ReagentCount[x];
             }
 
-            uint32 const count = std::max<int32>(1, spellInfo->Effects[i].CalcValue(bot));
-            result.push_back({spellInfo, proto, skillLine->SkillLine, count, price});
+            uint32 const count = scroll ? 1 : std::max<int32>(1, spellInfo->Effects[i].CalcValue(bot));
+            result.push_back({spellInfo, proto, skillLine->SkillLine, count, price, scroll});
             break;
         }
     }

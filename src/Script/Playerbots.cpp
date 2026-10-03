@@ -7,6 +7,7 @@
 #include "Playerbots.h"
 #include "BattleGroundTactics.h"
 #include "BattlefieldScript.h"
+#include "BotShopAction.h"  // Local change
 #include "Channel.h"
 #include "CheckMountStateAction.h"
 #include "Config.h"
@@ -131,7 +132,9 @@ public:
         PLAYERHOOK_CAN_PLAYER_USE_GUILD_CHAT,
         PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
         PLAYERHOOK_ON_GIVE_EXP,
-        PLAYERHOOK_ON_BEFORE_TELEPORT
+        PLAYERHOOK_ON_BEFORE_TELEPORT,
+        PLAYERHOOK_ON_GOSSIP_SELECT,  // Local change
+        PLAYERHOOK_ON_GOSSIP_SELECT_CODE  // Local change
     }) {}
 
     void OnPlayerLogin(Player* player) override
@@ -345,6 +348,21 @@ public:
 
         // otherwise apply bot XP multiplier.
         amount = static_cast<uint32>(std::round(static_cast<float>(amount) * sPlayerbotAIConfig.randomBotXPRate));
+    }
+
+    // Local change: a random bot's shop menu (player gossip; sender = the bot)
+    void OnPlayerGossipSelect(Player* player, uint32 menuId, uint32 sender, uint32 action) override
+    {
+        if (menuId == BotShopAction::MENU_ID)
+            BotShopAction::OnSelect(player, sender, action, "");
+    }
+
+    // Local change: the amount typed into a shop menu text box
+    void OnPlayerGossipSelectCode(Player* player, uint32 menuId, uint32 sender, uint32 action,
+                                  char const* code) override
+    {
+        if (menuId == BotShopAction::MENU_ID)
+            BotShopAction::OnSelect(player, sender, action, code ? code : "");
     }
 };
 

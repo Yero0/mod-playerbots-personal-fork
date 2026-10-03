@@ -27,6 +27,7 @@ struct CraftableItem
     uint32 skill;
     uint32 count;  // items per craft
     uint32 price;  // per craft: craft fee plus the reagents the bot supplies
+    bool scroll;   // an enchant made as its vellum scroll
 };
 
 class SetCraftAction : public Action
