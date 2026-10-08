@@ -265,6 +265,16 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     if (!bot->Unit::IsFalling())
         bot->SetFallInformation(0, bot->GetPositionZ());
 
+    // Local change: self-heal a bot stuck mounted and frozen after a taxi flight (flag set, no flight generator)
+    if (bot->HasUnitFlag(UNIT_FLAG_TAXI_FLIGHT) && !bot->IsInFlight() &&
+        bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FLIGHT_MOTION_TYPE)
+    {
+        LOG_INFO("playerbots", "Bot {} stuck after taxi flight on map {} at {:.1f} {:.1f} {:.1f}, cleaning up",
+                 bot->GetName(), bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
+        bot->GetMotionMaster()->MovementExpired();
+        bot->CleanupAfterTaxiFlight();
+    }
+
     // Handle cheat options (set bot health and power if cheats are enabled)
     if (bot->IsAlive() &&
         (static_cast<uint32>(GetCheat()) > 0 || static_cast<uint32>(sPlayerbotAIConfig.botCheatMask) > 0))
