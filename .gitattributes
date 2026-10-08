@@ -103,3 +103,4 @@ TODO         text
 ## EXECUTABLES
 *.exe binary
 *.pyc binary
+graphify-out/graph.json merge=graphify

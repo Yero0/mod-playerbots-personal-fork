@@ -58,3 +58,8 @@ local.properties
 .claude/settings.local.json
 .claude/handoff/
 .claude/agents/
+
+graphify-out/
+.graphifyignore
+/CLAUDE.md
+.claude/settings.json
