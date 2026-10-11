@@ -447,12 +447,12 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
                     }
                     else
                     {
-                        int32 const altBotAutoSellLevel = sPlayerbotAIConfig.altBotAutoSellLevel;
+                        int32 const altBotAutoSellLevel = sPlayerbotAIConfig.AltBotAutoSellLevel;
                         if (altBotAutoSellLevel >= 2)
                             botAI->DoSpecificAction("sell", Event("sell", "vendor"), true);
                         else if (altBotAutoSellLevel == 1)
                             botAI->DoSpecificAction("sell", Event("sell", "gray"), true);
-                        if (sPlayerbotAIConfig.enableAltBotAutoBuy)
+                        if (sPlayerbotAIConfig.EnableAltBotAutoBuy)
                             botAI->DoSpecificAction("buy", Event("buy", "vendor"), true);
                     }
                 }

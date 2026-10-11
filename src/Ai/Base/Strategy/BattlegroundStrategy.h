@@ -29,7 +29,7 @@ public:
     std::string const getName() override { return "Battleground"; }
 };
 
-// Local change: outnumbered bots fall back to allies (AiPlayerbot.BattlegroundCombatTactics)
+// Local change: outnumbered bots fall back to allies (Playerbots.BattlegroundCombatTactics)
 class BgRegroupStrategy : public Strategy
 {
 public:

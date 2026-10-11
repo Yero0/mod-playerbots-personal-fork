@@ -41,12 +41,15 @@ Unit* EnemyPlayerValue::Calculate()
 {
     bool controllingCannon = false;
     bool controllingVehicle = false;
+    bool passenger = false;
     if (Vehicle* vehicle = bot->GetVehicle())
     {
         VehicleSeatEntry const* seat = vehicle->GetSeatForPassenger(bot);
-        if (!seat || !seat->CanControl())  // not in control of vehicle so cant attack anyone
-            return nullptr;
-        if (botAI->IsInVehicle(false, false, false, false, true))
+        if (!seat || (!seat->CanControl() && !(seat->m_flags & VEHICLE_SEAT_FLAG_CAN_ATTACK)))
+            return nullptr;  // a passenger seat that can't attack
+        if (!seat->CanControl())
+            passenger = true;  // fights from its seat: it can't close in
+        else if (botAI->IsInVehicle(false, false, false, false, true))
             controllingCannon = true;
         else
             controllingVehicle = true;
@@ -115,10 +118,11 @@ Unit* EnemyPlayerValue::Calculate()
 
         // Aggro weak enemies from further away.
         // If controlling mobile vehicle only agro close enemies (otherwise will never reach objective)
-        uint32 const aggroDistance = controllingVehicle                                               ? 5.0f
+        uint32 const aggroDistance = passenger                                                        ? 30.0f
+                                     : controllingVehicle                                             ? 5.0f
                                      : (controllingCannon || bot->GetHealth() > pTarget->GetHealth()) ? maxAggroDistance
                                                                                                       : 20.0f;
-        if (!bot->IsWithinDist(pTarget, aggroDistance) || beyondLeash(pTarget))
+        if (!bot->IsWithinDist(pTarget, aggroDistance) || beyondLeash(pTarget))  // Local change: leash
             continue;
 
         if (bot->IsWithinLOSInMap(pTarget) &&
@@ -178,7 +182,7 @@ float EnemyPlayerValue::GetMaxAttackDistance()
 // Local change
 bool BgOutnumberedValue::Calculate()
 {
-    if (!sPlayerbotAIConfig.battlegroundCombatTactics || !bot->InBattleground() || bot->InArena())
+    if (!sPlayerbotAIConfig.BattlegroundCombatTactics || !bot->InBattleground() || bot->InArena())
         return _outnumbered = false;
 
     auto const countNear = [&](GuidVector const& guids, float range)

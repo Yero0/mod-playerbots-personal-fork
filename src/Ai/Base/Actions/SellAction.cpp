@@ -88,7 +88,7 @@ public:
             return true;
 
         // Local change: kept for players answering the bot's sell ad
-        if (sPlayerbotAIConfig.randomBotCraftForPlayers &&
+        if (sPlayerbotAIConfig.RandomBotCraftForPlayers &&
             context->GetValue<CraftData&>("craft")->Get().IsAdvertised(item->GetEntry()))
             return true;
 

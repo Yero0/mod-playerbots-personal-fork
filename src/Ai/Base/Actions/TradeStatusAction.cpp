@@ -37,7 +37,7 @@ bool TradeStatusAction::Execute(Event event)
     Player* master = GetMaster();
     // Local change: with RandomBotCraftForPlayers a random bot trades with any real player, never other bots
     bool const craftCustomer =
-        sPlayerbotAIConfig.randomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) && IsRealPlayer(trader);
+        sPlayerbotAIConfig.RandomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) && IsRealPlayer(trader);
 
     // Bots refuse to trade with a person (whether active or selfbotting) who is neither their
     // master nor a group member. Bot traders (other than selfbots) are handled further down.
@@ -51,7 +51,7 @@ bool TradeStatusAction::Execute(Event event)
         return false;
     }
 
-    if (sPlayerbotAIConfig.enableRandomBotTrading == 0 &&
+    if (sPlayerbotAIConfig.EnableRandomBotTrading == 0 &&
         (sRandomPlayerbotMgr.IsRandomBot(bot)|| sRandomPlayerbotMgr.IsAddclassBot(bot)))
     {
         bot->Whisper(PlayerbotTextMgr::instance().GetBotTextOrDefault(
@@ -145,7 +145,7 @@ bool TradeStatusAction::Execute(Event event)
         bot->GetMotionMaster()->Clear();
         bot->StopMoving();
 
-        if (!bot->HasInArc(CAST_ANGLE_IN_FRONT, trader, sPlayerbotAIConfig.sightDistance))
+        if (!bot->HasInArc(CAST_ANGLE_IN_FRONT, trader, sPlayerbotAIConfig.SightDistance))
             bot->SetFacingToObject(trader);
 
         // Local change: the shop menu replaces the trade (the client hides its window without cancelling it,
@@ -202,7 +202,7 @@ void TradeStatusAction::BeginTrade()
     TellItems(visitor.items, visitor.soulbound);
 
     // Local change: what a random bot crafts on order, the best few per profession
-    if (sPlayerbotAIConfig.randomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) && IsRealPlayer(trader))
+    if (sPlayerbotAIConfig.RandomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) && IsRealPlayer(trader))
     {
         std::vector<CraftableItem> const craftables = SetCraftAction::GetCraftableItems(bot);
         if (!craftables.empty())
@@ -316,7 +316,7 @@ bool TradeStatusAction::CheckTrade()
     int32 botMoney = bot->GetTradeData()->GetMoney() + botItemsMoney;
     int32 playerItemsMoney = CalculateCost(trader, false);
     int32 playerMoney = trader->GetTradeData()->GetMoney() + playerItemsMoney;
-    if (botItemsMoney > 0 && sPlayerbotAIConfig.enableRandomBotTrading == 2 &&
+    if (botItemsMoney > 0 && sPlayerbotAIConfig.EnableRandomBotTrading == 2 &&
         (sRandomPlayerbotMgr.IsRandomBot(bot)|| sRandomPlayerbotMgr.IsAddclassBot(bot)))
     {
         bot->Whisper(PlayerbotTextMgr::instance().GetBotTextOrDefault(
@@ -324,7 +324,7 @@ bool TradeStatusAction::CheckTrade()
                      LANG_UNIVERSAL, trader);
         return false;
     }
-    if (playerItemsMoney && sPlayerbotAIConfig.enableRandomBotTrading == 3 &&
+    if (playerItemsMoney && sPlayerbotAIConfig.EnableRandomBotTrading == 3 &&
         (sRandomPlayerbotMgr.IsRandomBot(bot)|| sRandomPlayerbotMgr.IsAddclassBot(bot)))
     {
         bot->Whisper(PlayerbotTextMgr::instance().GetBotTextOrDefault(

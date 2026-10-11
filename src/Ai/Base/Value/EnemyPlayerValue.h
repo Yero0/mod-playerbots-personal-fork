@@ -17,7 +17,7 @@ class Unit;
 class NearestEnemyPlayersValue : public PossibleTargetsValue
 {
 public:
-    NearestEnemyPlayersValue(PlayerbotAI* botAI, float range = sPlayerbotAIConfig.grindDistance)
+    NearestEnemyPlayersValue(PlayerbotAI* botAI, float range = sPlayerbotAIConfig.GrindDistance)
         : PossibleTargetsValue(botAI, "nearest enemy players", range)
     {
     }
@@ -41,7 +41,7 @@ private:
 };
 
 // Local change: battleground (not arena) bot facing at least BG_OUTNUMBERED_MARGIN more enemy players
-// than allies within TargetValue::BG_ROLE_RANGE (AiPlayerbot.BattlegroundCombatTactics). Once outnumbered,
+// than allies within TargetValue::BG_ROLE_RANGE (Playerbots.BattlegroundCombatTactics). Once outnumbered,
 // enemies count up to BG_OUTNUMBERED_EXIT_RANGE, so chasers falling a few yards behind don't end it.
 class BgOutnumberedValue : public BoolCalculatedValue
 {

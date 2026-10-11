@@ -82,7 +82,7 @@ public:
 bool BotShopAction::Open(Player* customer)
 {
     // the shop sells: not with EnableRandomBotTrading 2 (only buy)
-    if (!sPlayerbotAIConfig.randomBotCraftForPlayers || sPlayerbotAIConfig.enableRandomBotTrading == 2 || !customer ||
+    if (!sPlayerbotAIConfig.RandomBotCraftForPlayers || sPlayerbotAIConfig.EnableRandomBotTrading == 2 || !customer ||
         !IsRealPlayer(customer) || !sRandomPlayerbotMgr.IsRandomBot(bot))
         return false;
 
@@ -131,7 +131,7 @@ bool BotShopAction::InSession()
 bool BotShopAction::InSession(PlayerbotAI* botAI)
 {
     // cheap check first: CanMove asks this for every bot
-    return sPlayerbotAIConfig.randomBotCraftForPlayers &&
+    return sPlayerbotAIConfig.RandomBotCraftForPlayers &&
            !botAI->GetAiObjectContext()->GetValue<CraftData&>("craft")->Get().shopCustomer.IsEmpty() &&
            BotShopAction(botAI).InSession();
 }
@@ -139,7 +139,7 @@ bool BotShopAction::InSession(PlayerbotAI* botAI)
 void BotShopAction::OnSelect(Player* player, uint32 sender, uint32 action, std::string const& code)
 {
     Player* shopBot =
-        sPlayerbotAIConfig.randomBotCraftForPlayers ? ObjectAccessor::FindPlayerByLowGUID(sender) : nullptr;
+        sPlayerbotAIConfig.RandomBotCraftForPlayers ? ObjectAccessor::FindPlayerByLowGUID(sender) : nullptr;
     PlayerbotAI* shopBotAI = shopBot ? GET_PLAYERBOT_AI(shopBot) : nullptr;
     if (!shopBotAI)
     {

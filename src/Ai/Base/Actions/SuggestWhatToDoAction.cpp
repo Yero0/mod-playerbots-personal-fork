@@ -250,7 +250,7 @@ bool SuggestDungeonAction::Execute(Event /*event*/)
 {
     // TODO: use PlayerbotDungeonRepository::instance()
 
-    if (!sPlayerbotAIConfig.randomBotSuggestDungeons || bot->GetGroup())
+    if (!sPlayerbotAIConfig.RandomBotSuggestDungeons || bot->GetGroup())
         return false;
 
     if (instances.empty())
@@ -367,7 +367,7 @@ bool SuggestTradeAction::Execute(Event /*event*/)
 
     // Local change: an advertised item stays in the bags for a while, so a player answering the ad can buy it
     if (BroadcastHelper::BroadcastSuggestSell(botAI, proto, count, price, bot) &&
-        sPlayerbotAIConfig.randomBotCraftForPlayers)
+        sPlayerbotAIConfig.RandomBotCraftForPlayers)
         AI_VALUE(CraftData&, "craft").advertised[item] = time(nullptr) + 30 * MINUTE;
 
     return true;

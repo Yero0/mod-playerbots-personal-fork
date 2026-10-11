@@ -55,7 +55,7 @@ public:
     {
     }
 
-    // Local change: battleground role tactics (AiPlayerbot.BattlegroundCombatTactics)
+    // Local change: battleground role tactics (Playerbots.BattlegroundCombatTactics)
     static constexpr float BG_ROLE_RANGE = 30.0f;
     // unit is an enemy player hitting a friendly healer within BG_ROLE_RANGE of bot
     static bool IsAttackingHealer(Unit* unit, Player* bot);

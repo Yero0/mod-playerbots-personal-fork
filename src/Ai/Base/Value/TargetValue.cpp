@@ -111,7 +111,7 @@ void FindTargetStrategy::GetPlayerCount(Unit* creature, uint32* tankCount, uint3
         if (!player)
             continue;
 
-        if (botAI->IsTank(player))
+        if (PlayerbotAI::IsTank(player))
             ++(*tankCount);
         else
             ++(*dpsCount);
@@ -142,7 +142,7 @@ bool FindTargetStrategy::IsHighPriority(Unit* attacker)
 
     // Local change: in battlegrounds and arenas, enemy healers nearby come first
     Player* bot = botAI->GetBot();
-    if (sPlayerbotAIConfig.battlegroundCombatTactics && bot->InBattleground() && attacker->IsPlayer() &&
+    if (sPlayerbotAIConfig.BattlegroundCombatTactics && bot->InBattleground() && attacker->IsPlayer() &&
         bot->IsWithinDist(attacker, TargetValue::BG_ROLE_RANGE) && PlayerbotAI::IsHeal(attacker->ToPlayer()))
         return true;
 

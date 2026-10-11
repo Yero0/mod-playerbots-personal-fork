@@ -147,7 +147,7 @@ bool SetCraftAction::Execute(Event event)
 
     // Local change: a random bot crafts on order for the real player it trades with
     Player* trader = bot->GetTrader();
-    if (sPlayerbotAIConfig.randomBotCraftForPlayers && trader && trader == event.getOwner() &&
+    if (sPlayerbotAIConfig.RandomBotCraftForPlayers && trader && trader == event.getOwner() &&
         IsRealPlayer(trader) && sRandomPlayerbotMgr.IsRandomBot(bot) && link != "reset" && link != "?")
         return CraftForTrader(link);
 

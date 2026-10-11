@@ -20,7 +20,7 @@ bool TradeAction::Execute(Event event)
     std::string const text = event.getParam();
 
     // If text starts with any excluded prefix, don't process it further.
-    for (auto const& prefix : sPlayerbotAIConfig.tradeActionExcludedPrefixes)
+    for (auto const& prefix : sPlayerbotAIConfig.TradeActionExcludedPrefixes)
     {
         if (text.find(prefix) == 0)
             return false;
@@ -77,7 +77,7 @@ bool TradeAction::Execute(Event event)
     // only an explicit trailing number counts (the default of 1 above also applies to names without a space)
     bool const hasAmount = pos != std::string::npos && pos + 1 < text.size() &&
                            text.find_first_not_of("0123456789", pos + 1) == std::string::npos;
-    if (hasAmount && count > 0 && sPlayerbotAIConfig.randomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) &&
+    if (hasAmount && count > 0 && sPlayerbotAIConfig.RandomBotCraftForPlayers && sRandomPlayerbotMgr.IsRandomBot(bot) &&
         IsRealPlayer(bot->GetTrader()))
         return TradeAmount(found, count);
 
