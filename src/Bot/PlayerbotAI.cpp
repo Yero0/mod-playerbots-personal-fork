@@ -282,7 +282,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
              (!lastTaxiDiag2Ms || GetMSTimeDiffToNow(lastTaxiDiag2Ms) >= 30000))
     {
         lastTaxiDiag2Ms = getMSTime();
-        LOG_INFO("playerbots",
+        LOG_INFO("playerbots.taxidiag",
                  "[TaxiDiag2] {} inFlight={} taxiFlag={} disableMove={} mounted={} gen={} splineDone={} map={} "
                  "pos={:.1f} {:.1f} {:.1f} taxiDest={} taxiEmpty={}",
                  bot->GetName(), bot->IsInFlight(), bot->HasUnitFlag(UNIT_FLAG_TAXI_FLIGHT),

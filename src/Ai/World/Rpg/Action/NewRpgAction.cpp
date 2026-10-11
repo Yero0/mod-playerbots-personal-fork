@@ -710,7 +710,7 @@ bool NewRpgTravelFlightAction::Execute(Event /*event*/)
         if (!data.lastDiagMs || GetMSTimeDiffToNow(data.lastDiagMs) >= 10000)
         {
             data.lastDiagMs = getMSTime();
-            LOG_INFO("playerbots",
+            LOG_INFO("playerbots.taxidiag",
                      "[TaxiDiag] {} inFlight={} taxiFlag={} disableMove={} mounted={} gen={} splineDone={} map={} "
                      "pos={:.1f} {:.1f} {:.1f} taxiDest={} taxiEmpty={}",
                      bot->GetName(), bot->IsInFlight(), bot->HasUnitFlag(UNIT_FLAG_TAXI_FLIGHT),
