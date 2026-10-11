@@ -62,6 +62,7 @@ struct NewRpgInfo
         std::vector<uint32> path;
         bool inFlight{false};
         uint32 lastDiagMs{0};  // Local change: temporary [TaxiDiag] rate limit
+        uint32 finalizedSinceMs{0};  // Local change: when the flight spline was first seen finalized (0 = not)
     };
     // RPG_REST
     struct Rest

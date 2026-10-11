@@ -278,7 +278,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         bot->CleanupAfterTaxiFlight();
     }
     // Local change: temporary diagnostics for a mounted, move-disabled bot the heal above did not cover
-    else if (bot->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE) && bot->IsMounted() &&
+    else if (!bot->IsInFlight() && bot->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE) && bot->IsMounted() &&
              (!lastTaxiDiag2Ms || GetMSTimeDiffToNow(lastTaxiDiag2Ms) >= 30000))
     {
         lastTaxiDiag2Ms = getMSTime();

@@ -707,7 +707,7 @@ bool NewRpgTravelFlightAction::Execute(Event /*event*/)
     {
         data.inFlight = true;
         // Local change: temporary diagnostics, remove once the stuck-mounted bug is found
-        if (!data.lastDiagMs || GetMSTimeDiffToNow(data.lastDiagMs) >= 10000)
+        if (!data.lastDiagMs || GetMSTimeDiffToNow(data.lastDiagMs) >= 60000)  // Local change
         {
             data.lastDiagMs = getMSTime();
             LOG_INFO("playerbots.taxidiag",
@@ -720,6 +720,28 @@ bool NewRpgTravelFlightAction::Execute(Event /*event*/)
                      bot->GetPositionZ(), bot->m_taxi.GetTaxiDestination(), bot->m_taxi.empty());
         }
         ContinueCrossMapTaxi();
+
+        // Local change: heal a flight whose spline ended but the generator never finalized (bot frozen at the
+        // landing spot). The grace period covers the cross-map hop and the gap between multi-segment paths.
+        if (bot->movespline->Finalized() && !bot->IsBeingTeleported())
+        {
+            if (!data.finalizedSinceMs)
+                data.finalizedSinceMs = getMSTime() ? getMSTime() : 1;
+            else if (GetMSTimeDiffToNow(data.finalizedSinceMs) >= 10000)
+            {
+                LOG_INFO("playerbots",
+                         "Bot {} flight stalled at its end (map {} pos {:.1f} {:.1f} {:.1f}, taxi dest {}), "
+                         "cleaning up",
+                         bot->GetName(), bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(),
+                         bot->GetPositionZ(), bot->m_taxi.GetTaxiDestination());
+                data.finalizedSinceMs = 0;
+                bot->GetMotionMaster()->MovementExpired();
+                bot->ClearUnitState(UNIT_STATE_IN_FLIGHT);  // normally only DoFinalize clears it
+                bot->CleanupAfterTaxiFlight();
+            }
+        }
+        else
+            data.finalizedSinceMs = 0;
         return false;
     }
 
