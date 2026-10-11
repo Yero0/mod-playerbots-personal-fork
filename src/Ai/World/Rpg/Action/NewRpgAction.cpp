@@ -706,6 +706,19 @@ bool NewRpgTravelFlightAction::Execute(Event /*event*/)
     if (bot->IsInFlight())
     {
         data.inFlight = true;
+        // Local change: temporary diagnostics, remove once the stuck-mounted bug is found
+        if (!data.lastDiagMs || GetMSTimeDiffToNow(data.lastDiagMs) >= 10000)
+        {
+            data.lastDiagMs = getMSTime();
+            LOG_INFO("playerbots",
+                     "[TaxiDiag] {} inFlight={} taxiFlag={} disableMove={} mounted={} gen={} splineDone={} map={} "
+                     "pos={:.1f} {:.1f} {:.1f} taxiDest={} taxiEmpty={}",
+                     bot->GetName(), bot->IsInFlight(), bot->HasUnitFlag(UNIT_FLAG_TAXI_FLIGHT),
+                     bot->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE), bot->IsMounted(),
+                     static_cast<uint32>(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()),
+                     bot->movespline->Finalized(), bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(),
+                     bot->GetPositionZ(), bot->m_taxi.GetTaxiDestination(), bot->m_taxi.empty());
+        }
         ContinueCrossMapTaxi();
         return false;
     }

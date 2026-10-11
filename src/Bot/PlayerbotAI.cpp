@@ -277,6 +277,20 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         bot->GetMotionMaster()->MovementExpired();
         bot->CleanupAfterTaxiFlight();
     }
+    // Local change: temporary diagnostics for a mounted, move-disabled bot the heal above did not cover
+    else if (bot->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE) && bot->IsMounted() &&
+             (!lastTaxiDiag2Ms || GetMSTimeDiffToNow(lastTaxiDiag2Ms) >= 30000))
+    {
+        lastTaxiDiag2Ms = getMSTime();
+        LOG_INFO("playerbots",
+                 "[TaxiDiag2] {} inFlight={} taxiFlag={} disableMove={} mounted={} gen={} splineDone={} map={} "
+                 "pos={:.1f} {:.1f} {:.1f} taxiDest={} taxiEmpty={}",
+                 bot->GetName(), bot->IsInFlight(), bot->HasUnitFlag(UNIT_FLAG_TAXI_FLIGHT),
+                 bot->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE), bot->IsMounted(),
+                 static_cast<uint32>(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()),
+                 bot->movespline->Finalized(), bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(),
+                 bot->GetPositionZ(), bot->m_taxi.GetTaxiDestination(), bot->m_taxi.empty());
+    }
 
     // Handle cheat options (set bot health and power if cheats are enabled)
     if (bot->IsAlive() &&

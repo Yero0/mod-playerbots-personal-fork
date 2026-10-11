@@ -61,6 +61,7 @@ struct NewRpgInfo
         WorldPosition flightMasterPos{};
         std::vector<uint32> path;
         bool inFlight{false};
+        uint32 lastDiagMs{0};  // Local change: temporary [TaxiDiag] rate limit
     };
     // RPG_REST
     struct Rest
